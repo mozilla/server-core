@@ -60,6 +60,7 @@ from synccore import API_VERSION
 # _USERNAME_ is replaced by {username:[a-zA-Z0-9._-]+}
 # _ITEM_ is replaced by {item:[\\a-zA-Z0-9._?#~-]+}
 
+
 class SyncServerApp(object):
     """ BaseServerApp dispatches the request to the right controller
     by using Routes.
@@ -173,11 +174,11 @@ def set_app(urls, controllers, klass=SyncServerApp):
 
         if params.get('profile', False):
             app = AccumulatingProfileMiddleware(app,
-                                            log_filename='profile.log',
-                                            cachegrind_filename='cachegrind.out',
-                                            discard_first_request=True,
-                                            flush_at_shutdown=True,
-                                            path='/__profile__')
+                                          log_filename='profile.log',
+                                          cachegrind_filename='cachegrind.out',
+                                          discard_first_request=True,
+                                          flush_at_shutdown=True,
+                                          path='/__profile__')
 
         if params.get('debug', False):
             app = ErrorMiddleware(app, debug=True,

@@ -48,7 +48,6 @@ from email.header import Header
 import smtplib
 import socket
 import re
-import os
 from functools import wraps
 import datetime
 
@@ -284,7 +283,6 @@ def valid_password(user_name, password):
     if len(password) < 8:
         return False
     return user_name.lower().strip() != password.lower().strip()
-
 
 
 def convert_config(config):

@@ -67,4 +67,3 @@ def initenv():
     config = convert_config(config)
     auth = WeaveAuth.get_from_config(config)
     return _TOPDIR, config, auth
-

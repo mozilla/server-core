@@ -40,6 +40,7 @@ import sys
 import site
 from logging.config import fileConfig
 
+
 def loadapp(inifile, location=os.path.abspath(__file__)):
     """Loads the paths and return a past app"""
     # detecting if virtualenv was used in this dir
@@ -71,4 +72,4 @@ def loadapp(inifile, location=os.path.abspath(__file__)):
 
     # running the app using Paste
     from paste.deploy import loadapp
-    return loadapp('config:%s'% ini_file)
+    return loadapp('config:%s' % ini_file)
