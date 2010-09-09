@@ -52,7 +52,6 @@ import os
 from functools import wraps
 import datetime
 
-from mako.lookup import TemplateLookup
 
 from webob.exc import HTTPUnauthorized, HTTPServiceUnavailable
 from webob import Response
@@ -286,24 +285,6 @@ def valid_password(user_name, password):
         return False
     return user_name.lower().strip() != password.lower().strip()
 
-
-_TPL_DIR = os.path.join(os.path.dirname(__file__), 'templates')
-_lookup = TemplateLookup(directories=[_TPL_DIR],
-                         module_directory=_TPL_DIR)  # XXX defined in prod
-
-
-def render_mako(template, **data):
-    """Renders a mako template located in '/templates'
-
-    Args:
-        template: template name, so /templates/template exists
-        data: dict passed to the template engine
-
-    Requests:
-        returns the rendered template
-    """
-    template = _lookup.get_template(template)
-    return template.render(**data)
 
 
 def convert_config(config):

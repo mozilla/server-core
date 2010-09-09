@@ -48,13 +48,9 @@ from webob.dec import wsgify
 from webob.exc import HTTPNotFound, HTTPUnauthorized, HTTPBadRequest
 from webob import Response
 
-from synccore import API_VERSION
 from synccore.util import authenticate_user, convert_config
-from synccore.storage import WeaveStorage
 from synccore.auth import WeaveAuth
-from synccore.controllers.storage import StorageController
-from synccore.controllers.user import UserController
-from synccore.controllers.static import StaticController
+from synccore import API_VERSION
 
 # URL dispatching happens here
 # methods / match / controller / controller method / auth ?
@@ -64,83 +60,26 @@ from synccore.controllers.static import StaticController
 # _USERNAME_ is replaced by {username:[a-zA-Z0-9._-]+}
 # _ITEM_ is replaced by {item:[\\a-zA-Z0-9._?#~-]+}
 
-# Sync API
-_SYNC = [
-        ('GET', '/_API_/_USERNAME_/info/collections',
-         'storage', 'get_collections', True),
-        ('GET', '/_API_/_USERNAME_/info/collection_counts',
-         'storage', 'get_collection_counts', True),
-        ('GET', '/_API_/_USERNAME_/info/quota', 'storage', 'get_quota', True),
-        ('GET', '/_API_/_USERNAME_/info/collection_usage', 'storage',
-         'get_collection_usage', True),
-        # XXX empty collection call
-        ('PUT', '/_API_/_USERNAME_/storage/', 'storage', 'get_storage', True),
-        ('GET', '/_API_/_USERNAME_/storage/_COLLECTION_', 'storage',
-        'get_collection', True),
-        ('GET', '/_API_/_USERNAME_/storage/_COLLECTION_/_ITEM_', 'storage',
-        'get_item', True),
-        ('PUT', '/_API_/_USERNAME_/storage/_COLLECTION_/_ITEM_', 'storage',
-        'set_item', True),
-        ('POST', '/_API_/_USERNAME_/storage/_COLLECTION_', 'storage',
-        'set_collection', True),
-        ('PUT', '/_API_/_USERNAME_/storage/_COLLECTION_', 'storage',  # XXX FT
-        'set_collection', True),
-        ('DELETE', '/_API_/_USERNAME_/storage/_COLLECTION_', 'storage',
-        'delete_collection', True),
-        ('DELETE', '/_API_/_USERNAME_/storage/_COLLECTION_/_ITEM_', 'storage',
-        'delete_item', True),
-        ('DELETE', '/_API_/_USERNAME_/storage', 'storage', 'delete_storage',
-         True)]
-
-# User API
-_USER = [
-        # user API
-        ('GET', '/user/_API_/_USERNAME_', 'user', 'user_exists', False),
-        ('PUT', '/user/_API_/_USERNAME_', 'user', 'create_user', False),
-        ('DELETE', '/user/_API_/_USERNAME_', 'user', 'delete_user', True),
-        ('GET', '/user/_API_/_USERNAME_/node/weave', 'user', 'user_node',
-         False),
-        ('GET', '/user/_API_/_USERNAME_/password_reset', 'user',
-         'password_reset', True),
-        ('POST', '/user/_API_/_USERNAME_/email', 'user', 'change_email',
-         True),
-        ('GET', '/weave-password-reset', 'user', 'password_reset_form', False),
-        ('POST', '/weave-password-reset', 'user', 'do_password_reset', False),
-        (('GET', 'POST'), '/misc/_API_/captcha_html', 'user', 'captcha_form',
-         False),
-        # media   XXX served by Apache in real production
-        ('GET', '/media/{filename}', 'static', 'get_file', False)]
-
-
 class SyncServerApp(object):
-    """ SyncServerApp dispatches the request to the right controller
+    """ BaseServerApp dispatches the request to the right controller
     by using Routes.
     """
 
-    def __init__(self, config=None):
+    def __init__(self, urls, controllers, config=None):
         self.mapper = Mapper()
         if config is not None:
             self.config = config
         else:
             self.config = {}
 
-        # loading authentication and storage backends
+        # loading the authentication backend
         self.authtool = WeaveAuth.get_from_config(self.config)
-        self.storage = WeaveStorage.get_from_config(self.config)
 
         # loading and connecting controllers
-        self.controllers = {'storage': StorageController(self, self.storage),
-                            'user': UserController(self, self.authtool),
-                            'static': StaticController(self)}
+        self.controllers = dict([(name, klass(self)) for name, klass in
+                                 controllers.items()])
 
-        URLS = []
-        if self.config.get('provides_sync_apis', False):
-            URLS.extend(_SYNC)
-
-        if self.config.get('provides_user_apis', False):
-            URLS.extend(_USER)
-
-        for verbs, match, controller, method, auth in URLS:
+        for verbs, match, controller, method, auth in urls:
             if isinstance(verbs, str):
                 verbs = [verbs]
             for pattern, replacer in (('_API_', API_VERSION),
@@ -220,27 +159,29 @@ class SyncServerApp(object):
         return getattr(controller, method)
 
 
-def make_app(global_conf, **app_conf):
-    """Returns a Sync Server Application."""
-    global_conf.update(app_conf)
+def set_app(urls, controllers, klass=SyncServerApp):
+    """make_app factory."""
+    def make_app(global_conf, **app_conf):
+        """Returns a Sync Server Application."""
+        global_conf.update(app_conf)
+        params = convert_config(global_conf)
+        app = klass(urls, controllers, params)
 
-    params = convert_config(global_conf)
-    app = SyncServerApp(params)
+        if params.get('translogger', False):
+            app = TransLogger(app, logger_name='weaveserver',
+                            setup_console_handler=True)
 
-    if params.get('translogger', False):
-        app = TransLogger(app, logger_name='weaveserver',
-                          setup_console_handler=True)
+        if params.get('profile', False):
+            app = AccumulatingProfileMiddleware(app,
+                                            log_filename='profile.log',
+                                            cachegrind_filename='cachegrind.out',
+                                            discard_first_request=True,
+                                            flush_at_shutdown=True,
+                                            path='/__profile__')
 
-    if params.get('profile', False):
-        app = AccumulatingProfileMiddleware(app,
-                                         log_filename='profile.log',
-                                         cachegrind_filename='cachegrind.out',
-                                         discard_first_request=True,
-                                         flush_at_shutdown=True,
-                                         path='/__profile__')
+        if params.get('debug', False):
+            app = ErrorMiddleware(app, debug=True,
+                                show_exceptions_in_wsgi_errors=True)
 
-    if params.get('debug', False):
-        app = ErrorMiddleware(app, debug=True,
-                              show_exceptions_in_wsgi_errors=True)
-
-    return app
+        return app
+    return make_app
