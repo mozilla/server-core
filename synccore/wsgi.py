@@ -34,37 +34,41 @@
 # the terms of any one of the MPL, the GPL or the LGPL.
 #
 # ***** END LICENSE BLOCK *****
+"""Can be used as a basis to create a wsgi file for mod_wsgi"""
 import os
 import sys
 import site
 from logging.config import fileConfig
 
-# detecting if virtualenv was used in this dir
-_CURDIR = os.path.dirname(os.path.abspath(__file__))
-_PY_VER = sys.version.split()[0][:3]
+def loadapp(inifile, location=os.path.abspath(__file__)):
+    """Loads the paths and return a past app"""
+    # detecting if virtualenv was used in this dir
+    _CURDIR = os.path.dirname(location)
+    _PY_VER = sys.version.split()[0][:3]
 
-# XXX Posix scheme
-_SITE_PKG = os.path.join(_CURDIR, 'lib', 'python' + _PY_VER, 'site-packages')
+    # XXX Posix scheme
+    _SITE_PKG = os.path.join(_CURDIR, 'lib', 'python' + _PY_VER,
+                             'site-packages')
 
-# adding virtualenv's site-package and ordering paths
-saved = sys.path[:]
+    # adding virtualenv's site-package and ordering paths
+    saved = sys.path[:]
 
-if os.path.exists(_SITE_PKG):
-    site.addsitedir(_SITE_PKG)
+    if os.path.exists(_SITE_PKG):
+        site.addsitedir(_SITE_PKG)
 
-for path in sys.path:
-    if path not in saved:
-        saved.insert(0, path)
+    for path in sys.path:
+        if path not in saved:
+            saved.insert(0, path)
 
-sys.path[:] = saved
+    sys.path[:] = saved
 
-# setting up the egg cache to a place where apache can write
-os.environ['PYTHON_EGG_CACHE'] = '/tmp/python-eggs'
+    # setting up the egg cache to a place where apache can write
+    os.environ['PYTHON_EGG_CACHE'] = '/tmp/python-eggs'
 
-# setting up logging
-ini_file = os.path.join(_CURDIR, 'development.ini')
-fileConfig(ini_file)
+    # setting up logging
+    ini_file = os.path.join(_CURDIR, 'development.ini')
+    fileConfig(ini_file)
 
-# running the app using Paste
-from paste.deploy import loadapp
-application = loadapp('config:%s'% ini_file)
+    # running the app using Paste
+    from paste.deploy import loadapp
+    return loadapp('config:%s'% ini_file)
