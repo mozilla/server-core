@@ -1,7 +1,7 @@
 VIRTUALENV = virtualenv
 BIN = bin
 
-.PHONY: all build check coverage test mysqltest redisqltest doc alltest
+.PHONY: all build check coverage test mysqltest doc alltest
 
 all:	build test
 
@@ -13,27 +13,24 @@ build:
 	$(BIN)/python setup.py develop
 
 check:
-	rm -rf syncserver/templates/*.py
-	$(BIN)/flake8 syncserver
+	rm -rf synccore/templates/*.py
+	$(BIN)/flake8 synccore
 
 coverage:
-	$(BIN)/nosetests -s --cover-html --cover-html-dir=html --with-coverage --cover-package=syncserver syncserver
-	WEAVE_TESTFILE=mysql $(BIN)/nosetests -s --cover-html --cover-html-dir=html --with-coverage --cover-package=syncserver syncserver 
+	$(BIN)/nosetests -s --cover-html --cover-html-dir=html --with-coverage --cover-package=synccore synccore
+	WEAVE_TESTFILE=mysql $(BIN)/nosetests -s --cover-html --cover-html-dir=html --with-coverage --cover-package=synccore synccore 
 
 test:
-	$(BIN)/nosetests -s syncserver
+	$(BIN)/nosetests -s synccore
 
 mysqltest:
-	WEAVE_TESTFILE=mysql $(BIN)/nosetests -s syncserver
-
-redisqltest:
-	WEAVE_TESTFILE=redisql $(BIN)/nosetests -s syncserver
+	WEAVE_TESTFILE=mysql $(BIN)/nosetests -s synccore
 
 ldaptest:
-	WEAVE_TESTFILE=ldap $(BIN)/nosetests -s syncserver
+	WEAVE_TESTFILE=ldap $(BIN)/nosetests -s synccore
 
 
-alltest: test mysqltest redisqltest ldaptest
+alltest: test mysqltest ldaptest
 
 doc:
 	$(BIN)/sphinx-build doc/source/ doc/build/

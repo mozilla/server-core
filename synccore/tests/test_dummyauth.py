@@ -33,14 +33,31 @@
 # the terms of any one of the MPL, the GPL or the LGPL.
 #
 # ***** END LICENSE BLOCK *****
-from setuptools import setup, find_packages
+import unittest
 
-install_requires = ['SQLALchemy', 'PasteDeploy', 'WebOb', 'Mako', 'WebTest',
-                    'recaptcha-client', 'Routes', 'simplejson', 'distribute',
-                    'repoze.profile']
+from synccore.auth.dummy import DummyAuth
+from synccore.auth import WeaveAuth
 
-extra_requires = {'full': ['MySQL-python', 'redis', 'python-ldap']}
+WeaveAuth.register(DummyAuth)
 
 
-setup(name='SyncCore', version=0.1, packages=find_packages(),
-      install_requires=install_requires)
+class TestDummyAuth(unittest.TestCase):
+
+    def setUp(self):
+        self.auth = WeaveAuth.get('dummy')
+
+    def test_authenticate_user(self):
+        tarek_id = self.auth.authenticate_user('tarek', 'tarek')
+        self.assertNotEquals(self.auth.authenticate_user('tarek2', 'tarek'),
+                             tarek_id)
+        self.assertEquals(self.auth.authenticate_user('tarek', 'tarek'),
+                          tarek_id)
+
+
+def test_suite():
+    suite = unittest.TestSuite()
+    suite.addTest(unittest.makeSuite(TestDummyAuth))
+    return suite
+
+if __name__ == "__main__":
+    unittest.main(defaultTest="test_suite")

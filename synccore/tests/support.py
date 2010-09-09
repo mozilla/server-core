@@ -33,14 +33,38 @@
 # the terms of any one of the MPL, the GPL or the LGPL.
 #
 # ***** END LICENSE BLOCK *****
-from setuptools import setup, find_packages
+from ConfigParser import RawConfigParser
+import os
+from logging.config import fileConfig
 
-install_requires = ['SQLALchemy', 'PasteDeploy', 'WebOb', 'Mako', 'WebTest',
-                    'recaptcha-client', 'Routes', 'simplejson', 'distribute',
-                    'repoze.profile']
+from synccore.auth import WeaveAuth
+from synccore.util import convert_config
+import synccore
 
-extra_requires = {'full': ['MySQL-python', 'redis', 'python-ldap']}
+_WEAVEDIR = os.path.dirname(synccore.__file__)
+_TOPDIR = os.path.split(_WEAVEDIR)[0]
+if 'WEAVE_TESTFILE' in os.environ:
+    _INI_FILE = os.path.join(_TOPDIR, 'tests_%s.ini' % \
+                             os.environ['WEAVE_TESTFILE'])
+else:
+    _INI_FILE = os.path.join(_TOPDIR, 'tests.ini')
 
 
-setup(name='SyncCore', version=0.1, packages=find_packages(),
-      install_requires=install_requires)
+def initenv():
+    """Reads the config file and instanciates an auth and a storage.
+
+    The WEAVE_TESTFILE=name environment variable can be used to point
+    a particular tests_name.ini file.
+    """
+    cfg = RawConfigParser()
+    cfg.read(_INI_FILE)
+
+    # loading loggers
+    if cfg.has_section('loggers'):
+        fileConfig(_INI_FILE)
+
+    config = dict(cfg.items('DEFAULT') + cfg.items('app:main'))
+    config = convert_config(config)
+    auth = WeaveAuth.get_from_config(config)
+    return _TOPDIR, config, auth
+

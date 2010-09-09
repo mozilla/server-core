@@ -33,14 +33,42 @@
 # the terms of any one of the MPL, the GPL or the LGPL.
 #
 # ***** END LICENSE BLOCK *****
-from setuptools import setup, find_packages
-
-install_requires = ['SQLALchemy', 'PasteDeploy', 'WebOb', 'Mako', 'WebTest',
-                    'recaptcha-client', 'Routes', 'simplejson', 'distribute',
-                    'repoze.profile']
-
-extra_requires = {'full': ['MySQL-python', 'redis', 'python-ldap']}
+import unittest
+from synccore.plugin import Plugin
 
 
-setup(name='SyncCore', version=0.1, packages=find_packages(),
-      install_requires=install_requires)
+class TestPlugin(unittest.TestCase):
+
+    def test_get(self):
+        self.assertRaises(KeyError, Plugin.get, 'xxx')
+
+        class Buggy(object):
+
+            def __init__(self):
+                raise IOError('boom')
+
+            @classmethod
+            def get_name(cls):
+                return 'buggy'
+
+        Plugin.register(Buggy)
+        self.assertRaises(TypeError, Plugin.get, 'buggy')
+
+        class Cool(object):
+
+            @classmethod
+            def get_name(cls):
+                return 'cool'
+
+        Plugin.register(Cool)
+        p = Plugin.get('cool')
+        self.assertTrue(isinstance(p, Cool))
+
+
+def test_suite():
+    suite = unittest.TestSuite()
+    suite.addTest(unittest.makeSuite(TestPlugin))
+    return suite
+
+if __name__ == "__main__":
+    unittest.main(defaultTest="test_suite")
