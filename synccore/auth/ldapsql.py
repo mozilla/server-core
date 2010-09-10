@@ -40,9 +40,10 @@ import random
 import datetime
 import time
 from contextlib import contextmanager
+from threading import RLock
 
 import ldap
-from ldap.ldapobject import ReconnectLDAPObject
+from ldap.ldapobject import ReconnectLDAPObject, SimpleLDAPObject
 from ldap.modlist import addModlist
 
 from sqlalchemy.ext.declarative import declarative_base, Column
@@ -80,11 +81,12 @@ _USER_RESET_CODE = select([reset_codes.c.expiration,
               reset_codes.c.username == bindparam('user_name'))
 
 
-class MaxTriesReachedError(Exception):
+class MaxConnectionReachedError(Exception):
     pass
 
 
 class StateConnector(ReconnectLDAPObject):
+    """Just remembers who is connected, and if connected"""
 
     def simple_bind_s(self, who='', cred='', serverctrls=None,
                       clientctrls=None):
@@ -94,90 +96,75 @@ class StateConnector(ReconnectLDAPObject):
         self.who = who
         return res
 
-    def bind(self, who, cred, method):
-        self.who = who
-        res = ReconnectLDAPObject.bind(self, who, cred, method)
-        self.connected = True
-        return res
-
-    def unbind(self, *args, **kw):
-        res = ReconnectLDAPObject.unbind(self, *args, **kw)
+    def unbind_ext_s(self, serverctrls=None, clientctrls=None):
+        res = ReconnectLDAPObject.unbind_ext_s(self, serverctrls, clientctrls)
         self.connected = False
         self.who = None
         return res
 
-    def search_s(self, *args, **kw):
-        try:
-            return ReconnectLDAPObject.search_s(self, *args, **kw)
-        except ldap.SERVER_DOWN:
-            # we want to get rid of this connector
-            self.unbind()
-            raise
-        except ldap.NO_SUCH_OBJECT:
-            pass
-        except Exception:
-            # XXX Need to catch more of these
-            raise
-
 
 class ConnectionPool(object):
+    """LDAP Connector pool.
+    """
 
-    def __init__(self, uri, bind=None, passwd=None, size=100, max_tries=3):
+    def __init__(self, uri, bind=None, passwd=None, size=100, retry_max=10,
+                 retry_delay=1.):
         self._pool = []
         self.size = size
-        self.max_tries = max_tries
+        self.retry_max = retry_max
+        self.retry_delay = retry_delay
         self.uri = uri
         self.bind = bind
         self.passwd = passwd
+        self._pool_lock = RLock()
 
     def _get_connection(self, bind=None, passwd=None):
-        for conn in self._pool:
-            if not conn.active and (conn.who is None or conn.who == bind):
-                conn.active = True
-                return conn
-        if len(self._pool) >= self.size:
-            return None
         if bind is None:
             bind = self.bind
         if passwd is None:
             passwd = self.passwd
 
+        self._pool_lock.acquire()
         try:
-            conn = StateConnector(self.uri)
-            if bind is not None:
-                conn.simple_bind_s(bind, passwd)
-        except Exception:
-            return None
+            for conn in self._pool:
+                if not conn.active and (conn.who is None or conn.who == bind):
+                    # we found a connector for this bind, that can be used
+                    conn.active = True
+                    return conn
+        finally:
+            self._pool_lock.release()
+
+        # the pool is full
+        if len(self._pool) >= self.size:
+            raise MaxConnectionReachedError(self.uri)
+
+        # we need to create a connector
+        conn = StateConnector(self.uri, retry_max=self.retry_max,
+                              retry_delay=self.retry_delay)
+        if bind is not None:
+            conn.simple_bind_s(bind, passwd)
 
         conn.active = True
-        self._pool.append(conn)
+        self._pool_lock.acquire()
+        try:
+            self._pool.append(conn)
+        finally:
+            self._pool_lock.release()
         return conn
 
     def _release_connection(self, connection):
         if not connection.connected:
-            # let's recycle it
+            # unconnected connector, let's drop it
             self._pool.remove(connection)
         else:
-            # can be reused
+            # can be reused - let's mark is as not active
             connection.active = False
 
     @contextmanager
-    def ldap_connection(self, bind=None, passwd=None):
+    def connection(self, bind=None, passwd=None):
         conn = None
         try:
-            wait = 0.1
-            tries = 0
-            while tries < self.max_tries:
-                conn = self._get_connection(bind, passwd)
-                if conn is not None:
-                    break
-                time.sleep(wait)
-                wait *= 2
-                tries += 1
-
-            if conn is None:
-                raise MaxTriesReachedError(self.uri, self.bind)
-
+            conn = self._get_connection(bind, passwd)
             yield conn
         finally:
             if conn is not None:
@@ -214,7 +201,7 @@ class LDAPAuth(object):
             table.create(checkfirst=True)
 
     def _conn(self, bind=None, passwd=None):
-        return self.pool.ldap_connection(bind, passwd)
+        return self.pool.connection(bind, passwd)
 
     @classmethod
     def get_name(self):
@@ -283,13 +270,9 @@ class LDAPAuth(object):
 
         Returns the user id in case of success. Returns None otherwise."""
         dn = self._get_dn(user_name)
-        try:
-            with self._conn(dn, passwd) as conn:
-                user = conn.search_s(dn, ldap.SCOPE_BASE,
-                                    attrlist=['uidNumber', 'account-enabled'])
-        except Exception:
-            # we want to refine the exc
-            return None
+        with self._conn(dn, passwd) as conn:
+            user = conn.search_s(dn, ldap.SCOPE_BASE,
+                                 attrlist=['uidNumber', 'account-enabled'])
 
         if user is None:
             return None
