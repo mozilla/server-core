@@ -39,22 +39,72 @@ import threading
 try:
     import ldap
     from synccore.auth.ldapsql import (ConnectionPool, StateConnector,
-                                       MaxConnectionReachedError)
+                                       MaxConnectionReachedError, LDAPAuth)
     LDAP = True
 except ImportError:
     LDAP = False
 
 # patching StateConnector
+_USER = {'uidNumber': ['1'],
+         'account-enabled': ['Yes'],
+         'mail': ['tarek@mozilla.com'],
+         'cn': ['tarek']}
+
+StateConnector.users = {'uid=tarek,ou=users,dc=mozilla': _USER,
+        'cn=admin,dc=mozilla': {'cn': ['admin'],
+                                'mail': ['admin'],
+                                'uidNumber': ['2']}
+        }
+
 def _simple_bind(self, who, *args):
     self.connected = True
     self.who = who
 
 StateConnector.simple_bind_s = _simple_bind
 
-def _search(self, *args, **kw):
-    return [('cn=admin,dc=mozilla', {'cn': ['admin']})]
+
+def _search(self, dn, *args, **kw):
+    if dn in self.users:
+        return [(dn, self.users[dn])]
+    elif dn == 'ou=users,dc=mozilla':
+        uid = kw['filterstr'].split('=')[-1][:-1]
+        for dn_, value in self.users.items():
+            if value['uidNumber'][0] != uid:
+                continue
+            return [(dn_, value)]
+
+    raise ldap.NO_SUCH_OBJECT
 
 StateConnector.search_s = _search
+
+def _add(self, dn, user):
+    self.users[dn] = {}
+    for key, value in user:
+        if not isinstance(value, list):
+            value = [value]
+        self.users[dn][key] = value
+
+    return 1, ''
+
+StateConnector.add_s = _add
+
+def _modify(self, dn, user):
+    if dn in self.users:
+        for type_, key, value in user:
+            if not isinstance(value, list):
+                value = [value]
+            self.users[dn][key] = value
+    return 1, ''
+
+StateConnector.modify_s = _modify
+
+def _delete(self, dn):
+    if dn in self.users:
+        del self.users[dn]
+    return 1, ''
+
+StateConnector.delete_s = _delete
+
 
 
 class LDAPWorker(threading.Thread):
@@ -66,7 +116,6 @@ class LDAPWorker(threading.Thread):
 
     def run(self):
         dn = 'cn=admin,dc=mozilla'
-
         for i in range(10):
             with self.pool.connection() as conn:
                 res = conn.search_s(dn, ldap.SCOPE_BASE,
@@ -84,11 +133,11 @@ class TestLDAPSQLAuth(unittest.TestCase):
         for worker in workers:
             worker.start()
 
-        wanted = [('cn=admin,dc=mozilla', {'cn': ['admin']})]
         for worker in workers:
             worker.join()
             self.assertEquals(len(worker.results), 10)
-            self.assertEquals(worker.results[0], wanted)
+            cn = worker.results[0][0][1]['cn']
+            self.assertEquals(cn, ['admin'])
 
     def test_pool_full(self):
         dn = 'uid=adminuser,ou=logins,dc=mozilla'
@@ -124,3 +173,38 @@ class TestLDAPSQLAuth(unittest.TestCase):
             pass
 
         self.assertTrue(conn is not conn2)
+
+    def test_ldap_auth(self):
+
+        auth = LDAPAuth('ldap://localhost',
+                        'sqlite:///:memory:')
+
+        auth.create_user('tarek', 'tarek', 'tarek@ziade.org')
+        uid = auth.get_user_id('tarek')
+
+        auth_uid = auth.authenticate_user('tarek', 'tarek')
+        self.assertEquals(auth_uid, uid)
+
+        # reset code APIs
+        code = auth.generate_reset_code(uid)
+        self.assertFalse(auth.verify_reset_code(uid, 'beh'))
+        self.assertFalse(auth.verify_reset_code(uid, 'XXXX-XXXX-XXXX-XXXX'))
+        self.assertTrue(auth.verify_reset_code(uid, code))
+        auth.clear_reset_code(uid)
+        self.assertFalse(auth.verify_reset_code(uid, code))
+
+        # e-mail update
+        auth.update_email(uid, 'new@email.com')
+        name, email = auth.get_user_info(uid)
+        self.assertEquals(email, 'new@email.com')
+
+        # update password
+        auth.update_password(uid, 'xxxx')
+        #auth_uid = auth.authenticate_user('tarek', 'tarek')
+        #self.assertEquals(auth_uid, None)
+        #auth_uid = auth.authenticate_user('tarek', 'xxxx')
+        #self.assertEquals(auth_uid, ui)
+
+        auth.delete_user(uid)
+        auth_uid = auth.authenticate_user('tarek', 'xxxx')
+        self.assertEquals(auth_uid, None)

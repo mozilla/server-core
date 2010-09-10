@@ -270,9 +270,12 @@ class LDAPAuth(object):
 
         Returns the user id in case of success. Returns None otherwise."""
         dn = self._get_dn(user_name)
-        with self._conn(dn, passwd) as conn:
-            user = conn.search_s(dn, ldap.SCOPE_BASE,
-                                 attrlist=['uidNumber', 'account-enabled'])
+        try:
+            with self._conn(dn, passwd) as conn:
+                user = conn.search_s(dn, ldap.SCOPE_BASE,
+                                     attrlist=['uidNumber', 'account-enabled'])
+        except (ldap.NO_SUCH_OBJECT, ldap.INVALID_CREDENTIALS):
+            return None
 
         if user is None:
             return None
@@ -328,7 +331,7 @@ class LDAPAuth(object):
         res = self._engine.execute(_USER_RESET_CODE, user_name=user_name)
         res = res.fetchone()
 
-        if res.reset is None or res.expiration is None:
+        if res is None or res.reset is None or res.expiration is None:
             return False
 
         # XXX SQLALchemy should turn it into a datetime for us
@@ -405,7 +408,7 @@ class LDAPAuth(object):
         dn = self._get_dn(user_name)
 
         with self._conn() as conn:
-            res, __ = conn.modify_ext_s(dn, user)
+            res, __ = conn.modify_s(dn, user)
 
         return res == ldap.RES_MODIFY
 
