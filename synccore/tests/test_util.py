@@ -40,7 +40,9 @@ from base64 import encodestring
 from webob.exc import HTTPServiceUnavailable
 
 from synccore.util import (authenticate_user, convert_config, bigint2time,
-                             time2bigint, valid_email, batch, raise_503)
+                           time2bigint, valid_email, batch, raise_503,
+                           validate_password, ssha, ssha256,
+                           valid_password)
 
 
 class Request(object):
@@ -117,3 +119,14 @@ class TestUtil(unittest.TestCase):
         self.assertRaises(HTTPServiceUnavailable, bad.boomya)
         self.assertEquals(bad.boomya.__doc__, 'doc')
         self.assertEquals(bad.boomya.__name__, 'boomya')
+
+    def test_validate_password(self):
+        one = ssha('one')
+        two = ssha256('two')
+        self.assertTrue(validate_password('one', one))
+        self.assertTrue(validate_password('two', two))
+
+    def test_valid_password(self):
+        self.assertFalse(valid_password('tarek', 'xx'))
+        self.assertFalse(valid_password('t'*8, 't'*8))
+        self.assertTrue(valid_password('tarek', 't'*8))
