@@ -108,7 +108,7 @@ class ConnectionPool(object):
     """
 
     def __init__(self, uri, bind=None, passwd=None, size=100, retry_max=10,
-                 retry_delay=1.):
+                 retry_delay=1., use_tls=False):
         self._pool = []
         self.size = size
         self.retry_max = retry_max
@@ -117,6 +117,7 @@ class ConnectionPool(object):
         self.bind = bind
         self.passwd = passwd
         self._pool_lock = RLock()
+        self.use_tls = False
 
     def _get_connection(self, bind=None, passwd=None):
         if bind is None:
@@ -141,6 +142,10 @@ class ConnectionPool(object):
         # we need to create a connector
         conn = StateConnector(self.uri, retry_max=self.retry_max,
                               retry_delay=self.retry_delay)
+
+        if self.use_tls:
+            conn.start_tls_s()
+
         if bind is not None:
             conn.simple_bind_s(bind, passwd)
 
@@ -188,7 +193,8 @@ class LDAPAuth(object):
         self.use_tls = use_tls
         self.admin_proxy = None
         self.users_root = users_root
-        self.pool = ConnectionPool(ldapuri, bind_user, bind_password)
+        self.pool = ConnectionPool(ldapuri, bind_user, bind_password,
+                                   use_tls=use_tls)
         kw = {'pool_size': int(pool_size),
               'pool_recycle': int(pool_recycle),
               'logging_name': 'weaveserver'}
