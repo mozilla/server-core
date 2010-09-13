@@ -36,13 +36,15 @@
 import unittest
 import time
 from base64 import encodestring
+import urllib2
+import socket
 
 from webob.exc import HTTPServiceUnavailable
 
 from synccore.util import (authenticate_user, convert_config, bigint2time,
                            time2bigint, valid_email, batch, raise_503,
                            validate_password, ssha, ssha256,
-                           valid_password)
+                           valid_password, get_url)
 
 
 class Request(object):
@@ -60,8 +62,14 @@ class AuthTool(object):
 
 class TestUtil(unittest.TestCase):
 
-    def test_authenticate_user(self):
+    def setUp(self):
+        self.oldopen = urllib2.urlopen
+        urllib2.urlopen = self._urlopen
 
+    def tearDown(self):
+        urllib2.urlopen = self.oldopen
+
+    def test_authenticate_user(self):
         token = 'Basic ' + encodestring('tarek:tarek')
         req = Request('/1.0/tarek/info/collections', {})
         res = authenticate_user(req, AuthTool())
@@ -130,3 +138,71 @@ class TestUtil(unittest.TestCase):
         self.assertFalse(valid_password('tarek', 'xx'))
         self.assertFalse(valid_password('t'*8, 't'*8))
         self.assertTrue(valid_password('tarek', 't'*8))
+
+    def _urlopen(self, req, timeout=None):
+        # mimics urlopen
+        class FakeResult(object):
+            headers = {}
+
+            def getcode(self):
+                return 200
+
+            def read(self):
+                return '{}'
+
+        url = req.get_full_url()
+        if url == 'impossible url':
+            raise ValueError()
+        if url == 'http://dwqkndwqpihqdw.com':
+            msg = 'Name or service not known'
+            raise urllib2.URLError(socket.gaierror(-2, msg))
+        if url == 'http://google.com':
+            return FakeResult()
+        if url == 'http://badauth':
+            raise urllib2.HTTPError(url, 401, '', {}, None)
+        if url == 'http://goodauth':
+            return FakeResult()
+        if url == 'http://timeout':
+            raise urllib2.URLError(socket.timeout())
+        if url == 'http://error':
+            raise urllib2.HTTPError(url, 500, 'Error', {}, None)
+
+        raise
+
+    def test_get_url(self):
+
+        # malformed url
+        self.assertRaises(ValueError, get_url, 'impossible url')
+
+        # unknown location
+        code, headers, body = get_url('http://dwqkndwqpihqdw.com',
+                                      get_body=False)
+        self.assertEquals(code, 502)
+        self.assertTrue('Name or service not known' in body)
+
+        # any page
+        code, headers, body = get_url('http://google.com', get_body=False)
+        self.assertEquals(code, 200)
+        self.assertEquals(body, '')
+
+        # page with auth failure
+        code, headers, body = get_url('http://badauth',
+                                      user='tarek',
+                                      password='xxxx')
+        self.assertEquals(code, 401)
+
+        # page with right auth
+        code, headers, body = get_url('http://goodauth',
+                                      user='tarek',
+                                      password='passat76')
+        self.assertEquals(code, 200)
+        self.assertEquals(body, '{}')
+
+        # page that times out
+        code, headers, body = get_url('http://timeout', timeout=0.1)
+        self.assertEquals(code, 504)
+
+        # page that fails
+        code, headers, body = get_url('http://error', get_body=False)
+        self.assertEquals(code, 500)
+        self.assertTrue('Error' in body)
