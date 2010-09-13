@@ -39,6 +39,9 @@ import abc
 from synccore.plugin import Plugin
 
 
+class NodeAttributionError(Exception):
+    pass
+
 class WeaveAuth(Plugin):
     """Abstract Base Class for the authentication APIs."""
     name = 'auth'
@@ -158,4 +161,21 @@ class WeaveAuth(Plugin):
 
         Returns:
             True if the deletion was successful, False otherwise
+        """
+
+    @abc.abstractmethod
+    def get_user_node(self, user_id):
+        """Returns the node of the user.
+
+        This method is also responsible to initialize the user's node
+        location. If the backend is unable to attribute a node, it will raise a
+        NodeAttributionError. If the backend is configured for a single box, it
+        will return None.
+
+        Args:
+            user_id: user id
+
+        Returns:
+            The node URL. None if the auth does not support node location.
+            None is returned on single-boxe setups.
         """

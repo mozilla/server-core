@@ -48,10 +48,11 @@ from ldap.modlist import addModlist
 
 from sqlalchemy.ext.declarative import declarative_base, Column
 from sqlalchemy import Integer, String, DateTime
-from sqlalchemy import create_engine
-from sqlalchemy.sql import bindparam, select, insert, delete
+from sqlalchemy import create_engine, SmallInteger
+from sqlalchemy.sql import bindparam, select, insert, delete, update
 
 from synccore.util import generate_reset_code, check_reset_code, ssha
+from synccore.auth import NodeAttributionError
 
 _Base = declarative_base()
 
@@ -74,7 +75,17 @@ class UserIds(_Base):
 userids = UserIds.__table__
 
 
-tables = [reset_codes, userids]
+class AvailableNodes(_Base):
+    __tablename__ = 'available_nodes'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ct = Column(SmallInteger)
+    actives = Column(Integer(11))
+    node = Column(String(256))
+
+available_nodes = AvailableNodes.__table__
+
+tables = [reset_codes, userids, available_nodes]
 
 _USER_RESET_CODE = select([reset_codes.c.expiration,
                            reset_codes.c.reset],
@@ -108,7 +119,7 @@ class ConnectionPool(object):
     """
 
     def __init__(self, uri, bind=None, passwd=None, size=100, retry_max=10,
-                 retry_delay=1., use_tls=False):
+                 retry_delay=1., use_tls=False, single_box=False):
         self._pool = []
         self.size = size
         self.retry_max = retry_max
@@ -183,7 +194,8 @@ class LDAPAuth(object):
                  bind_password='binduser', admin_user='adminuser',
                  admin_password='adminuser', users_root='ou=users,dc=mozilla',
                  admin_proxy=None, pool_size=100, pool_recycle=3600,
-                 reset_on_return=True):
+                 reset_on_return=True, single_box=False,
+                 nodes_scheme='https'):
         self.ldapuri = ldapuri
         self.sqluri = sqluri
         self.bind_user = bind_user
@@ -193,6 +205,8 @@ class LDAPAuth(object):
         self.use_tls = use_tls
         self.admin_proxy = None
         self.users_root = users_root
+        self.single_box = single_box
+        self.nodes_scheme = nodes_scheme
         self.pool = ConnectionPool(ldapuri, bind_user, bind_password,
                                    use_tls=use_tls)
         kw = {'pool_size': int(pool_size),
@@ -392,7 +406,6 @@ class LDAPAuth(object):
                                 filterstr='(uidNumber=%s)' % user_id,
                                 attrlist=['cn', 'mail'])
 
-        # need to read the result
         if len(res) == 0:
             return None, None
 
@@ -458,3 +471,60 @@ class LDAPAuth(object):
                 return False
 
         return res == ldap.RES_DELETE
+
+    def get_user_node(self, user_id):
+        if self.single_box:
+            return None
+
+        user_id = str(user_id)
+        user_name, __ = self.get_user_info(user_id)
+        dn = self._get_dn(user_name)
+
+        # getting the list of primary nodes
+        with self._conn() as conn:
+            res = conn.search_s(dn, ldap.SCOPE_BASE,
+                                attrlist=['primaryNode'])
+
+        res = res[0][1]
+
+        for node in res['primaryNode']:
+            node = node[len('weave:'):]
+            if node == '':
+                continue
+            # we want to return the URL
+            return '%s://%s/' % (self.nodes_scheme, node)
+
+        # the user don't have a node yet
+        # let's pick the most bored node
+        query = select([available_nodes]).where(available_nodes.c.ct > 0)
+        query = query.order_by(available_nodes.c.actives).limit(1)
+
+        res = self._engine.execute(query)
+        res = res.fetchone()
+        if res is None:
+            # unable to get a node
+            raise NodeAttributionError(user_name)
+
+        node = str(res.node)
+
+        # updating LDAP now
+        user = [(ldap.MOD_REPLACE, 'primaryNode',
+                ['weave:%s' % node])]
+
+        with self._conn() as conn:
+            ldap_res, __ = conn.modify_s(dn, user)
+
+        if ldap_res != ldap.RES_MODIFY:
+            # unable to set the node in LDAP
+            raise NodeAttributionError(user_name)
+
+        # node is set at this point
+        try:
+            # book-keeping in sql
+            query = update(available_nodes)
+            query = query.where(available_nodes.c.node == node)
+            query = query.values(ct=res.ct-1, actives=res.actives+1)
+            self._engine.execute(query)
+        finally:
+            # we want to return the node even if the sql update fails
+            return '%s://%s/' % (self.nodes_scheme, node)

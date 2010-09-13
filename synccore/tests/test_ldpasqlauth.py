@@ -53,7 +53,7 @@ _USER = {'uidNumber': ['1'],
 StateConnector.users = {'uid=tarek,ou=users,dc=mozilla': _USER,
         'cn=admin,dc=mozilla': {'cn': ['admin'],
                                 'mail': ['admin'],
-                                'uidNumber': ['2']}
+                                'uidNumber': ['100']}
         }
 
 def _simple_bind(self, who, *args):
@@ -84,7 +84,7 @@ def _add(self, dn, user):
             value = [value]
         self.users[dn][key] = value
 
-    return 1, ''
+    return ldap.RES_ADD, ''
 
 StateConnector.add_s = _add
 
@@ -94,14 +94,14 @@ def _modify(self, dn, user):
             if not isinstance(value, list):
                 value = [value]
             self.users[dn][key] = value
-    return 1, ''
+    return ldap.RES_MODIFY, ''
 
 StateConnector.modify_s = _modify
 
 def _delete(self, dn):
     if dn in self.users:
         del self.users[dn]
-    return 1, ''
+    return ldap.RES_DELETE, ''
 
 StateConnector.delete_s = _delete
 
@@ -208,3 +208,31 @@ class TestLDAPSQLAuth(unittest.TestCase):
         auth.delete_user(uid)
         auth_uid = auth.authenticate_user('tarek', 'xxxx')
         self.assertEquals(auth_uid, None)
+
+    def test_node_attribution(self):
+
+        # let's set up some nodes in the SQL DB
+        auth = LDAPAuth('ldap://localhost',
+                        'sqlite:///:memory:')
+
+        sql = ('insert into available_nodes (node, ct, actives) '
+                'values("%s", %d, %d)')
+
+        for node, ct, actives in (('node1', 10, 101),
+                                  ('node2', 0, 100),
+                                  ('node3', 1, 89)):
+
+            auth._engine.execute(sql % (node, ct, actives))
+
+
+        auth.create_user('tarek', 'tarek', 'tarek@ziade.org')
+        uid = auth.get_user_id('tarek')
+
+        # first call will set it up
+        self.assertEquals(auth.get_user_node(uid), 'https://node3/')
+        self.assertEquals(auth.get_user_node(uid), 'https://node3/')
+
+        # node3 is full now. Next user should be on node1
+        auth.create_user('tarek2', 'tarek2', 'tarek@ziade.org')
+        uid = auth.get_user_id('tarek2')
+        self.assertEquals(auth.get_user_node(uid), 'https://node1/')

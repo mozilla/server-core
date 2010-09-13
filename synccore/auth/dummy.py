@@ -109,3 +109,7 @@ class DummyAuth(object):
     def get_total_size(self, user_id):
         """Returns the total size in KB of a user storage"""
         return 0   # unlimited
+
+    def get_user_node(self, user_id):
+        """Returns the user node"""
+        return None
