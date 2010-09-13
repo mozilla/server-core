@@ -45,16 +45,14 @@ except ImportError:
     LDAP = False
 
 # patching StateConnector
-_USER = {'uidNumber': ['1'],
-         'account-enabled': ['Yes'],
-         'mail': ['tarek@mozilla.com'],
-         'cn': ['tarek']}
+StateConnector.users = {'uid=tarek,ou=users,dc=mozilla': {'uidNumber': ['1'],
+                                                  'account-enabled': ['Yes'],
+                                                  'mail': ['tarek@mozilla.com'],
+                                                  'cn': ['tarek']},
+                        'cn=admin,dc=mozilla': {'cn': ['admin'],
+                                                'mail': ['admin'],
+                                                'uidNumber': ['100']}}
 
-StateConnector.users = {'uid=tarek,ou=users,dc=mozilla': _USER,
-        'cn=admin,dc=mozilla': {'cn': ['admin'],
-                                'mail': ['admin'],
-                                'uidNumber': ['100']}
-        }
 
 def _simple_bind(self, who, *args):
     self.connected = True
@@ -77,6 +75,7 @@ def _search(self, dn, *args, **kw):
 
 StateConnector.search_s = _search
 
+
 def _add(self, dn, user):
     self.users[dn] = {}
     for key, value in user:
@@ -88,6 +87,7 @@ def _add(self, dn, user):
 
 StateConnector.add_s = _add
 
+
 def _modify(self, dn, user):
     if dn in self.users:
         for type_, key, value in user:
@@ -98,13 +98,14 @@ def _modify(self, dn, user):
 
 StateConnector.modify_s = _modify
 
+
 def _delete(self, dn):
     if dn in self.users:
         del self.users[dn]
     return ldap.RES_DELETE, ''
 
-StateConnector.delete_s = _delete
 
+StateConnector.delete_s = _delete
 
 
 class LDAPWorker(threading.Thread):
@@ -121,6 +122,7 @@ class LDAPWorker(threading.Thread):
                 res = conn.search_s(dn, ldap.SCOPE_BASE,
                                     attrlist=['cn'])
                 self.results.append(res)
+
 
 class TestLDAPSQLAuth(unittest.TestCase):
 
@@ -145,7 +147,7 @@ class TestLDAPSQLAuth(unittest.TestCase):
         pool = ConnectionPool('ldap://localhost', dn, passwd, size=0)
 
         def tryit():
-            with pool.connection() as conn:
+            with pool.connection() as conn:  # NOQA
                 pass
 
         self.assertRaises(MaxConnectionReachedError, tryit)
@@ -223,7 +225,6 @@ class TestLDAPSQLAuth(unittest.TestCase):
                                   ('node3', 1, 89)):
 
             auth._engine.execute(sql % (node, ct, actives))
-
 
         auth.create_user('tarek', 'tarek', 'tarek@ziade.org')
         uid = auth.get_user_id('tarek')

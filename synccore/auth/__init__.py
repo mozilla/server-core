@@ -42,6 +42,7 @@ from synccore.plugin import Plugin
 class NodeAttributionError(Exception):
     pass
 
+
 class WeaveAuth(Plugin):
     """Abstract Base Class for the authentication APIs."""
     name = 'auth'

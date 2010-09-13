@@ -38,12 +38,11 @@
 from hashlib import sha1
 import random
 import datetime
-import time
 from contextlib import contextmanager
 from threading import RLock
 
 import ldap
-from ldap.ldapobject import ReconnectLDAPObject, SimpleLDAPObject
+from ldap.ldapobject import ReconnectLDAPObject
 from ldap.modlist import addModlist
 
 from sqlalchemy.ext.declarative import declarative_base, Column
@@ -523,7 +522,7 @@ class LDAPAuth(object):
             # book-keeping in sql
             query = update(available_nodes)
             query = query.where(available_nodes.c.node == node)
-            query = query.values(ct=res.ct-1, actives=res.actives+1)
+            query = query.values(ct=res.ct - 1, actives=res.actives + 1)
             self._engine.execute(query)
         finally:
             # we want to return the node even if the sql update fails

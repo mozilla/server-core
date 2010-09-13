@@ -136,8 +136,8 @@ class TestUtil(unittest.TestCase):
 
     def test_valid_password(self):
         self.assertFalse(valid_password('tarek', 'xx'))
-        self.assertFalse(valid_password('t'*8, 't'*8))
-        self.assertTrue(valid_password('tarek', 't'*8))
+        self.assertFalse(valid_password('t' * 8, 't' * 8))
+        self.assertTrue(valid_password('tarek', 't' * 8))
 
     def _urlopen(self, req, timeout=None):
         # mimics urlopen
