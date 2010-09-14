@@ -237,3 +237,17 @@ class TestLDAPSQLAuth(unittest.TestCase):
         auth.create_user('tarek2', 'tarek2', 'tarek@ziade.org')
         uid = auth.get_user_id('tarek2')
         self.assertEquals(auth.get_user_node(uid), 'https://node1/')
+
+    def test_md5_dn(self):
+        auth = LDAPAuth('ldap://localhost', 'sqlite:///:memory:',
+                        users_root='md5',
+                        users_base_dn='dc=mozilla')
+
+        wanted = 'uid=tarek,dc=17507,dc=7507,dc=507,dc=07,dc=7,dc=mozilla'
+        self.assertEquals(auth._get_dn('tarek'), wanted)
+
+        # now make sure the code hapilly uses this setting
+        auth.create_user('tarek', 'tarek', 'tarek@ziade.org')
+        uid = auth.get_user_id('tarek')
+        auth_uid = auth.authenticate_user('tarek', 'tarek')
+        self.assertEquals(auth_uid, uid)

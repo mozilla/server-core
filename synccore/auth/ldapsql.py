@@ -35,7 +35,7 @@
 # ***** END LICENSE BLOCK *****
 """ LDAP Authentication
 """
-from hashlib import sha1
+from hashlib import sha1, md5
 import random
 import datetime
 from contextlib import contextmanager
@@ -192,7 +192,7 @@ class LDAPAuth(object):
     def __init__(self, ldapuri, sqluri, use_tls=False, bind_user='binduser',
                  bind_password='binduser', admin_user='adminuser',
                  admin_password='adminuser', users_root='ou=users,dc=mozilla',
-                 pool_size=100, pool_recycle=3600,
+                 users_base_dn=None, pool_size=100, pool_recycle=3600,
                  reset_on_return=True, single_box=False,
                  nodes_scheme='https'):
         self.ldapuri = ldapuri
@@ -203,6 +203,7 @@ class LDAPAuth(object):
         self.admin_password = admin_password
         self.use_tls = use_tls
         self.users_root = users_root
+        self.users_base_dn = users_base_dn
         self.single_box = single_box
         self.nodes_scheme = nodes_scheme
         self.pool = ConnectionPool(ldapuri, bind_user, bind_password,
@@ -229,8 +230,12 @@ class LDAPAuth(object):
     def _get_dn(self, uid):
         if self.users_root != 'md5':
             return 'uid=%s,%s' % (uid, self.users_root)
-        # calculate the md5
-        raise NotImplementedError
+
+        # the dn is calculate with a hash of the user name
+        hash = md5(uid).hexdigest()[:5]
+        dcs = ['dc=%s' % hash[pos:] for pos in range(5)]
+        dcs.append(self.users_base_dn)
+        return 'uid=%s,%s' % (uid, ','.join(dcs))
 
     def get_user_id(self, user_name):
         """Returns the id for a user name"""
@@ -385,6 +390,7 @@ class LDAPAuth(object):
         res = self._engine.execute(query)
         return res.rowcount > 0
 
+
     def get_user_info(self, user_id):
         """Returns user info
 
@@ -396,15 +402,17 @@ class LDAPAuth(object):
         """
         if self.users_root != 'md5':
             dn = self.users_root
+            scope = ldap.SCOPE_SUBTREE
         else:
-            raise NotImplementedError
+            dn = self._get_dn(user_id)
+            scope = ldap.SCOPE_BASE
 
         with self._conn() as conn:
-            res = conn.search_s(dn, ldap.SCOPE_SUBTREE,
+            res = conn.search_s(dn, scope,
                                 filterstr='(uidNumber=%s)' % user_id,
                                 attrlist=['cn', 'mail'])
 
-        if len(res) == 0:
+        if res is None or len(res) == 0:
             return None, None
 
         res = res[0][1]
