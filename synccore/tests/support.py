@@ -43,11 +43,18 @@ import synccore
 
 _WEAVEDIR = os.path.dirname(synccore.__file__)
 _TOPDIR = os.path.split(_WEAVEDIR)[0]
-if 'WEAVE_TESTFILE' in os.environ:
-    _INI_FILE = os.path.join(_TOPDIR, 'tests_%s.ini' % \
-                             os.environ['WEAVE_TESTFILE'])
-else:
-    _INI_FILE = os.path.join(_TOPDIR, 'tests.ini')
+
+while True:
+    if 'WEAVE_TESTFILE' in os.environ:
+        _INI_FILE = os.path.join(_TOPDIR, 'tests_%s.ini' % \
+                                 os.environ['WEAVE_TESTFILE'])
+    else:
+        _INI_FILE = os.path.join(_TOPDIR, 'tests.ini')
+
+    if os.path.exists(_INI_FILE):
+        break
+
+    _TOPDIR = os.path.split(_TOPDIR)[0]
 
 
 def initenv():
