@@ -192,7 +192,7 @@ class LDAPAuth(object):
     def __init__(self, ldapuri, sqluri, use_tls=False, bind_user='binduser',
                  bind_password='binduser', admin_user='adminuser',
                  admin_password='adminuser', users_root='ou=users,dc=mozilla',
-                 admin_proxy=None, pool_size=100, pool_recycle=3600,
+                 pool_size=100, pool_recycle=3600,
                  reset_on_return=True, single_box=False,
                  nodes_scheme='https'):
         self.ldapuri = ldapuri
@@ -202,7 +202,6 @@ class LDAPAuth(object):
         self.admin_user = admin_user
         self.admin_password = admin_password
         self.use_tls = use_tls
-        self.admin_proxy = None
         self.users_root = users_root
         self.single_box = single_box
         self.nodes_scheme = nodes_scheme
