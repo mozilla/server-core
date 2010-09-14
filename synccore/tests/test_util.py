@@ -44,7 +44,9 @@ from webob.exc import HTTPServiceUnavailable
 from synccore.util import (authenticate_user, convert_config, bigint2time,
                            time2bigint, valid_email, batch, raise_503,
                            validate_password, ssha, ssha256,
-                           valid_password, get_url)
+                           valid_password, get_url, json_response,
+                           newlines_response, whoisi_response, text_response,
+                           json_response)
 
 
 class Request(object):
@@ -206,3 +208,24 @@ class TestUtil(unittest.TestCase):
         code, headers, body = get_url('http://error', get_body=False)
         self.assertEquals(code, 500)
         self.assertTrue('Error' in body)
+
+    def test_response_conversions(self):
+        data = {'some': 'data'}
+        resp = text_response(data)
+        self.assertEquals(resp.body, "{'some': 'data'}")
+        self.assertEquals(resp.content_type, 'text/plain')
+
+        data = "abc"
+        resp = whoisi_response(data)
+        self.assertEquals(resp.body,
+                '\x00\x00\x00\x03"a"\x00\x00\x00\x03"b"\x00\x00\x00\x03"c"')
+        self.assertEquals(resp.content_type, 'application/whoisi')
+
+        resp = newlines_response(data)
+        self.assertEquals(resp.body, '"a"\n"b"\n"c"\n')
+        self.assertEquals(resp.content_type, 'application/newlines')
+
+        data = {'some': 'data'}
+        resp = json_response(data)
+        self.assertEquals(resp.body, '{"some": "data"}')
+        self.assertEquals(resp.content_type, 'application/json')

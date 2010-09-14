@@ -108,6 +108,11 @@ def authenticate_user(request, authtool, username=None):
             return user_id
 
 
+def text_response(data):
+    """Returns Response containing a plain text"""
+    return Response(str(data), content_type='text/plain')
+
+
 def json_response(lines):
     """Returns Response containing a json string"""
     return Response(json.dumps(lines), content_type='application/json')
