@@ -44,68 +44,70 @@ try:
 except ImportError:
     LDAP = False
 
-# patching StateConnector
-StateConnector.users = {'uid=tarek,ou=users,dc=mozilla': {'uidNumber': ['1'],
-                                                 'account-enabled': ['Yes'],
-                                                 'mail': ['tarek@mozilla.com'],
-                                                 'cn': ['tarek']},
-                        'cn=admin,dc=mozilla': {'cn': ['admin'],
-                                                'mail': ['admin'],
-                                                'uidNumber': ['100']}}
+if LDAP:
+    # patching StateConnector
+    StateConnector.users = {'uid=tarek,ou=users,dc=mozilla':
+                                        {'uidNumber': ['1'],
+                                         'account-enabled': ['Yes'],
+                                         'mail': ['tarek@mozilla.com'],
+                                         'cn': ['tarek']},
+                            'cn=admin,dc=mozilla': {'cn': ['admin'],
+                                                    'mail': ['admin'],
+                                                    'uidNumber': ['100']}}
 
 
-def _simple_bind(self, who, *args):
-    self.connected = True
-    self.who = who
+    def _simple_bind(self, who, *args):
+        self.connected = True
+        self.who = who
 
-StateConnector.simple_bind_s = _simple_bind
-
-
-def _search(self, dn, *args, **kw):
-    if dn in self.users:
-        return [(dn, self.users[dn])]
-    elif dn == 'ou=users,dc=mozilla':
-        uid = kw['filterstr'].split('=')[-1][:-1]
-        for dn_, value in self.users.items():
-            if value['uidNumber'][0] != uid:
-                continue
-            return [(dn_, value)]
-
-    raise ldap.NO_SUCH_OBJECT
-
-StateConnector.search_s = _search
+    StateConnector.simple_bind_s = _simple_bind
 
 
-def _add(self, dn, user):
-    self.users[dn] = {}
-    for key, value in user:
-        if not isinstance(value, list):
-            value = [value]
-        self.users[dn][key] = value
+    def _search(self, dn, *args, **kw):
+        if dn in self.users:
+            return [(dn, self.users[dn])]
+        elif dn == 'ou=users,dc=mozilla':
+            uid = kw['filterstr'].split('=')[-1][:-1]
+            for dn_, value in self.users.items():
+                if value['uidNumber'][0] != uid:
+                    continue
+                return [(dn_, value)]
 
-    return ldap.RES_ADD, ''
+        raise ldap.NO_SUCH_OBJECT
 
-StateConnector.add_s = _add
+    StateConnector.search_s = _search
 
 
-def _modify(self, dn, user):
-    if dn in self.users:
-        for type_, key, value in user:
+    def _add(self, dn, user):
+        self.users[dn] = {}
+        for key, value in user:
             if not isinstance(value, list):
                 value = [value]
             self.users[dn][key] = value
-    return ldap.RES_MODIFY, ''
 
-StateConnector.modify_s = _modify
+        return ldap.RES_ADD, ''
 
-
-def _delete(self, dn):
-    if dn in self.users:
-        del self.users[dn]
-    return ldap.RES_DELETE, ''
+    StateConnector.add_s = _add
 
 
-StateConnector.delete_s = _delete
+    def _modify(self, dn, user):
+        if dn in self.users:
+            for type_, key, value in user:
+                if not isinstance(value, list):
+                    value = [value]
+                self.users[dn][key] = value
+        return ldap.RES_MODIFY, ''
+
+    StateConnector.modify_s = _modify
+
+
+    def _delete(self, dn):
+        if dn in self.users:
+            del self.users[dn]
+        return ldap.RES_DELETE, ''
+
+
+    StateConnector.delete_s = _delete
 
 
 class LDAPWorker(threading.Thread):
@@ -177,7 +179,8 @@ class TestLDAPSQLAuth(unittest.TestCase):
         self.assertTrue(conn is not conn2)
 
     def test_ldap_auth(self):
-
+        if not LDAP:
+            return
         auth = LDAPAuth('ldap://localhost',
                         'sqlite:///:memory:')
 
@@ -212,6 +215,8 @@ class TestLDAPSQLAuth(unittest.TestCase):
         self.assertEquals(auth_uid, None)
 
     def test_node_attribution(self):
+        if not LDAP:
+            return
 
         # let's set up some nodes in the SQL DB
         auth = LDAPAuth('ldap://localhost',
