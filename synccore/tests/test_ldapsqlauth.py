@@ -46,9 +46,9 @@ except ImportError:
 
 # patching StateConnector
 StateConnector.users = {'uid=tarek,ou=users,dc=mozilla': {'uidNumber': ['1'],
-                                                  'account-enabled': ['Yes'],
-                                                  'mail': ['tarek@mozilla.com'],
-                                                  'cn': ['tarek']},
+                                                 'account-enabled': ['Yes'],
+                                                 'mail': ['tarek@mozilla.com'],
+                                                 'cn': ['tarek']},
                         'cn=admin,dc=mozilla': {'cn': ['admin'],
                                                 'mail': ['admin'],
                                                 'uidNumber': ['100']}}
