@@ -44,7 +44,7 @@ from webob.exc import HTTPServiceUnavailable
 from synccore.util import (authenticate_user, convert_config, bigint2time,
                            time2bigint, valid_email, batch, raise_503,
                            validate_password, ssha, ssha256,
-                           valid_password, get_url, json_response,
+                           valid_password, json_response,
                            newlines_response, whoisi_response, text_response,
                            json_response)
 
@@ -63,13 +63,6 @@ class AuthTool(object):
 
 
 class TestUtil(unittest.TestCase):
-
-    def setUp(self):
-        self.oldopen = urllib2.urlopen
-        urllib2.urlopen = self._urlopen
-
-    def tearDown(self):
-        urllib2.urlopen = self.oldopen
 
     def test_authenticate_user(self):
         token = 'Basic ' + encodestring('tarek:tarek')
