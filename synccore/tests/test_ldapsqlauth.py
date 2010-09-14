@@ -129,6 +129,8 @@ class LDAPWorker(threading.Thread):
 class TestLDAPSQLAuth(unittest.TestCase):
 
     def test_pool(self):
+        if not LDAP:
+            return
         dn = 'uid=adminuser,ou=logins,dc=mozilla'
         passwd = 'adminuser'
         pool = ConnectionPool('ldap://localhost', dn, passwd)
@@ -144,6 +146,8 @@ class TestLDAPSQLAuth(unittest.TestCase):
             self.assertEquals(cn, ['admin'])
 
     def test_pool_full(self):
+        if not LDAP:
+            return
         dn = 'uid=adminuser,ou=logins,dc=mozilla'
         passwd = 'adminuser'
         pool = ConnectionPool('ldap://localhost', dn, passwd, size=0)
@@ -155,6 +159,8 @@ class TestLDAPSQLAuth(unittest.TestCase):
         self.assertRaises(MaxConnectionReachedError, tryit)
 
     def test_pool_reuse(self):
+        if not LDAP:
+            return
         dn = 'uid=adminuser,ou=logins,dc=mozilla'
         passwd = 'adminuser'
         pool = ConnectionPool('ldap://localhost', dn, passwd)
@@ -244,6 +250,8 @@ class TestLDAPSQLAuth(unittest.TestCase):
         self.assertEquals(auth.get_user_node(uid), 'https://node1/')
 
     def test_md5_dn(self):
+        if not LDAP:
+            return
         auth = LDAPAuth('ldap://localhost', 'sqlite:///:memory:',
                         users_root='md5',
                         users_base_dn='dc=mozilla')
