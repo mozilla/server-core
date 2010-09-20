@@ -34,10 +34,12 @@
 #
 # ***** END LICENSE BLOCK *****
 import unittest
+import threading
 
 try:
     import ldap
-    from synccore.auth.ldapsql import StateConnector, LDAPAuth
+    from synccore.auth.ldapsql import (ConnectionPool, StateConnector,
+                                       MaxConnectionReachedError)
     LDAP = True
 except ImportError:
     LDAP = False
@@ -102,85 +104,76 @@ if LDAP:
     StateConnector.delete_s = _delete
 
 
+class LDAPWorker(threading.Thread):
+
+    def __init__(self, pool):
+        threading.Thread.__init__(self)
+        self.pool = pool
+        self.results = []
+
+    def run(self):
+        dn = 'cn=admin,dc=mozilla'
+        for i in range(10):
+            with self.pool.connection() as conn:
+                res = conn.search_s(dn, ldap.SCOPE_BASE,
+                                    attrlist=['cn'])
+                self.results.append(res)
+
+
 class TestLDAPSQLAuth(unittest.TestCase):
 
-    def test_ldap_auth(self):
+    def test_pool(self):
         if not LDAP:
             return
-        auth = LDAPAuth('ldap://localhost',
-                        'sqlite:///:memory:')
+        dn = 'uid=adminuser,ou=logins,dc=mozilla'
+        passwd = 'adminuser'
+        pool = ConnectionPool('ldap://localhost', dn, passwd)
+        workers = [LDAPWorker(pool) for i in range(10)]
 
-        auth.create_user('tarek', 'tarek', 'tarek@ziade.org')
-        uid = auth.get_user_id('tarek')
+        for worker in workers:
+            worker.start()
 
-        auth_uid = auth.authenticate_user('tarek', 'tarek')
-        self.assertEquals(auth_uid, uid)
+        for worker in workers:
+            worker.join()
+            self.assertEquals(len(worker.results), 10)
+            cn = worker.results[0][0][1]['cn']
+            self.assertEquals(cn, ['admin'])
 
-        # reset code APIs
-        code = auth.generate_reset_code(uid)
-        self.assertFalse(auth.verify_reset_code(uid, 'beh'))
-        self.assertFalse(auth.verify_reset_code(uid, 'XXXX-XXXX-XXXX-XXXX'))
-        self.assertTrue(auth.verify_reset_code(uid, code))
-        auth.clear_reset_code(uid)
-        self.assertFalse(auth.verify_reset_code(uid, code))
-
-        # e-mail update
-        auth.update_email(uid, 'new@email.com')
-        name, email = auth.get_user_info(uid)
-        self.assertEquals(email, 'new@email.com')
-
-        # update password
-        auth.update_password(uid, 'xxxx')
-        #auth_uid = auth.authenticate_user('tarek', 'tarek')
-        #self.assertEquals(auth_uid, None)
-        #auth_uid = auth.authenticate_user('tarek', 'xxxx')
-        #self.assertEquals(auth_uid, ui)
-
-        auth.delete_user(uid)
-        auth_uid = auth.authenticate_user('tarek', 'xxxx')
-        self.assertEquals(auth_uid, None)
-
-    def test_node_attribution(self):
+    def test_pool_full(self):
         if not LDAP:
             return
+        dn = 'uid=adminuser,ou=logins,dc=mozilla'
+        passwd = 'adminuser'
+        pool = ConnectionPool('ldap://localhost', dn, passwd, size=0)
 
-        # let's set up some nodes in the SQL DB
-        auth = LDAPAuth('ldap://localhost',
-                        'sqlite:///:memory:')
+        def tryit():
+            with pool.connection() as conn:  # NOQA
+                pass
 
-        sql = ('insert into available_nodes (node, ct, actives) '
-                'values("%s", %d, %d)')
+        self.assertRaises(MaxConnectionReachedError, tryit)
 
-        for node, ct, actives in (('node1', 10, 101),
-                                  ('node2', 0, 100),
-                                  ('node3', 1, 89)):
-
-            auth._engine.execute(sql % (node, ct, actives))
-
-        auth.create_user('tarek', 'tarek', 'tarek@ziade.org')
-        uid = auth.get_user_id('tarek')
-
-        # first call will set it up
-        self.assertEquals(auth.get_user_node(uid), 'https://node3/')
-        self.assertEquals(auth.get_user_node(uid), 'https://node3/')
-
-        # node3 is full now. Next user should be on node1
-        auth.create_user('tarek2', 'tarek2', 'tarek@ziade.org')
-        uid = auth.get_user_id('tarek2')
-        self.assertEquals(auth.get_user_node(uid), 'https://node1/')
-
-    def test_md5_dn(self):
+    def test_pool_reuse(self):
         if not LDAP:
             return
-        auth = LDAPAuth('ldap://localhost', 'sqlite:///:memory:',
-                        users_root='md5',
-                        users_base_dn='dc=mozilla')
+        dn = 'uid=adminuser,ou=logins,dc=mozilla'
+        passwd = 'adminuser'
+        pool = ConnectionPool('ldap://localhost', dn, passwd)
 
-        wanted = 'uid=tarek,dc=17507,dc=7507,dc=507,dc=07,dc=7,dc=mozilla'
-        self.assertEquals(auth._get_dn('tarek'), wanted)
+        with pool.connection() as conn:
+            self.assertTrue(conn.active)
 
-        # now make sure the code hapilly uses this setting
-        auth.create_user('tarek', 'tarek', 'tarek@ziade.org')
-        uid = auth.get_user_id('tarek')
-        auth_uid = auth.authenticate_user('tarek', 'tarek')
-        self.assertEquals(auth_uid, uid)
+        self.assertFalse(conn.active)
+        self.assertTrue(conn.connected)
+
+        with pool.connection() as conn2:
+            pass
+
+        self.assertTrue(conn is conn2)
+
+        with pool.connection() as conn:
+            conn.connected = False
+
+        with pool.connection() as conn2:
+            pass
+
+        self.assertTrue(conn is not conn2)

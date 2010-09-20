@@ -390,7 +390,6 @@ class LDAPAuth(object):
         res = self._engine.execute(query)
         return res.rowcount > 0
 
-
     def get_user_info(self, user_id):
         """Returns user info
 
