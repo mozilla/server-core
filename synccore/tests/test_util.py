@@ -36,8 +36,6 @@
 import unittest
 import time
 from base64 import encodestring
-import urllib2
-import socket
 
 from webob.exc import HTTPServiceUnavailable
 
@@ -45,8 +43,7 @@ from synccore.util import (authenticate_user, convert_config, bigint2time,
                            time2bigint, valid_email, batch, raise_503,
                            validate_password, ssha, ssha256,
                            valid_password, json_response,
-                           newlines_response, whoisi_response, text_response,
-                           json_response)
+                           newlines_response, whoisi_response, text_response)
 
 
 class Request(object):

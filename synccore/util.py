@@ -50,7 +50,6 @@ import socket
 import re
 from functools import wraps
 import datetime
-import urllib2
 
 from webob.exc import HTTPUnauthorized, HTTPServiceUnavailable
 from webob import Response
