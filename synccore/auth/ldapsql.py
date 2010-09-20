@@ -38,11 +38,8 @@
 from hashlib import sha1, md5
 import random
 import datetime
-from contextlib import contextmanager
-from threading import RLock
 
 import ldap
-from ldap.ldapobject import ReconnectLDAPObject
 from ldap.modlist import addModlist
 
 from sqlalchemy.ext.declarative import declarative_base, Column
@@ -52,6 +49,7 @@ from sqlalchemy.sql import bindparam, select, insert, delete, update
 
 from synccore.util import generate_reset_code, check_reset_code, ssha
 from synccore.auth import NodeAttributionError
+from synccore.auth.ldappool import ConnectionPool
 
 _Base = declarative_base()
 
@@ -91,101 +89,6 @@ _USER_RESET_CODE = select([reset_codes.c.expiration,
               reset_codes.c.username == bindparam('user_name'))
 
 
-class MaxConnectionReachedError(Exception):
-    pass
-
-
-class StateConnector(ReconnectLDAPObject):
-    """Just remembers who is connected, and if connected"""
-
-    def simple_bind_s(self, who='', cred='', serverctrls=None,
-                      clientctrls=None):
-        res = ReconnectLDAPObject.simple_bind_s(self, who, cred, serverctrls,
-                                                clientctrls)
-        self.connected = True
-        self.who = who
-        return res
-
-    def unbind_ext_s(self, serverctrls=None, clientctrls=None):
-        res = ReconnectLDAPObject.unbind_ext_s(self, serverctrls, clientctrls)
-        self.connected = False
-        self.who = None
-        return res
-
-
-class ConnectionPool(object):
-    """LDAP Connector pool.
-    """
-
-    def __init__(self, uri, bind=None, passwd=None, size=100, retry_max=10,
-                 retry_delay=1., use_tls=False, single_box=False):
-        self._pool = []
-        self.size = size
-        self.retry_max = retry_max
-        self.retry_delay = retry_delay
-        self.uri = uri
-        self.bind = bind
-        self.passwd = passwd
-        self._pool_lock = RLock()
-        self.use_tls = False
-
-    def _get_connection(self, bind=None, passwd=None):
-        if bind is None:
-            bind = self.bind
-        if passwd is None:
-            passwd = self.passwd
-
-        self._pool_lock.acquire()
-        try:
-            for conn in self._pool:
-                if not conn.active and (conn.who is None or conn.who == bind):
-                    # we found a connector for this bind, that can be used
-                    conn.active = True
-                    return conn
-        finally:
-            self._pool_lock.release()
-
-        # the pool is full
-        if len(self._pool) >= self.size:
-            raise MaxConnectionReachedError(self.uri)
-
-        # we need to create a connector
-        conn = StateConnector(self.uri, retry_max=self.retry_max,
-                              retry_delay=self.retry_delay)
-
-        if self.use_tls:
-            conn.start_tls_s()
-
-        if bind is not None:
-            conn.simple_bind_s(bind, passwd)
-
-        conn.active = True
-        self._pool_lock.acquire()
-        try:
-            self._pool.append(conn)
-        finally:
-            self._pool_lock.release()
-        return conn
-
-    def _release_connection(self, connection):
-        if not connection.connected:
-            # unconnected connector, let's drop it
-            self._pool.remove(connection)
-        else:
-            # can be reused - let's mark is as not active
-            connection.active = False
-
-    @contextmanager
-    def connection(self, bind=None, passwd=None):
-        conn = None
-        try:
-            conn = self._get_connection(bind, passwd)
-            yield conn
-        finally:
-            if conn is not None:
-                self._release_connection(conn)
-
-
 class LDAPAuth(object):
     """LDAP authentication."""
 
@@ -206,6 +109,7 @@ class LDAPAuth(object):
         self.users_base_dn = users_base_dn
         self.single_box = single_box
         self.nodes_scheme = nodes_scheme
+        # by default, the ldap connections use the bind user
         self.pool = ConnectionPool(ldapuri, bind_user, bind_password,
                                    use_tls=use_tls)
         kw = {'pool_size': int(pool_size),
@@ -406,7 +310,7 @@ class LDAPAuth(object):
             dn = self._get_dn(user_id)
             scope = ldap.SCOPE_BASE
 
-        with self._conn() as conn:
+        with self._conn(self.admin_user, self.admin_password) as conn:
             res = conn.search_s(dn, scope,
                                 filterstr='(uidNumber=%s)' % user_id,
                                 attrlist=['cn', 'mail'])
@@ -431,7 +335,7 @@ class LDAPAuth(object):
         user = [(ldap.MOD_REPLACE, 'mail', [email])]
         dn = self._get_dn(user_name)
 
-        with self._conn() as conn:
+        with self._conn(self.admin_user, self.admin_password) as conn:
             res, __ = conn.modify_s(dn, user)
 
         return res == ldap.RES_MODIFY
@@ -451,16 +355,17 @@ class LDAPAuth(object):
         user = [(ldap.MOD_REPLACE, 'userPassword', [password_hash])]
         dn = self._get_dn(user_name)
 
-        with self._conn() as conn:
+        with self._conn(self.admin_user, self.admin_password) as conn:
             res, __ = conn.modify_s(dn, user)
 
         return res == ldap.RES_MODIFY
 
-    def delete_user(self, user_id):
+    def delete_user(self, user_id, password=None):
         """Deletes a user
 
         Args:
             user_id: user id
+            password: user password
 
         Returns:
             True if the deletion was successful, False otherwise
@@ -468,12 +373,17 @@ class LDAPAuth(object):
         user_id = str(user_id)
         user_name, __ = self.get_user_info(user_id)
         dn = self._get_dn(user_name)
+        if password is None:
+            return False   # we need a password
 
-        with self._conn() as conn:
-            try:
-                res, __ = conn.delete_s(dn)
-            except ldap.NO_SUCH_OBJECT:
-                return False
+        try:
+            with self._conn(dn, password) as conn:
+                try:
+                    res, __ = conn.delete_s(dn)
+                except ldap.NO_SUCH_OBJECT:
+                    return False
+        except ldap.INVALID_CREDENTIALS:
+            return False
 
         return res == ldap.RES_DELETE
 
@@ -516,7 +426,7 @@ class LDAPAuth(object):
         user = [(ldap.MOD_REPLACE, 'primaryNode',
                 ['weave:%s' % node])]
 
-        with self._conn() as conn:
+        with self._conn(self.admin_user, self.admin_password) as conn:
             ldap_res, __ = conn.modify_s(dn, user)
 
         if ldap_res != ldap.RES_MODIFY:

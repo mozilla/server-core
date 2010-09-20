@@ -226,11 +226,12 @@ class SQLAuth(object):
         res = self._engine.execute(query.values(password_hash=password_hash))
         return res.rowcount == 1
 
-    def delete_user(self, user_id):
+    def delete_user(self, user_id, password=None):
         """Deletes a user
 
         Args:
             user_id: user id
+            password: user password, if needed
 
         Returns:
             True if the deletion was successful, False otherwise

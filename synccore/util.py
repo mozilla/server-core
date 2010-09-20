@@ -104,6 +104,10 @@ def authenticate_user(request, authtool, username=None):
 
             # we're all clear ! setting up REMOTE_USER and user_id
             request.environ['REMOTE_USER'] = user_name
+
+            # we also want to keep the password in clear text for reuse
+            # XXX See what's the best place to store the password
+            request.environ['USER_PASSWORD'] = password
             return user_id
 
 

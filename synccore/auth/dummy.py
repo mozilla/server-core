@@ -98,7 +98,7 @@ class DummyAuth(object):
         """Updates the e-mail"""
         return True
 
-    def delete_user(self, user_id):
+    def delete_user(self, user_id, password=None):
         """Removes a user"""
         for name, id_ in tuple(self._users.items()):
             if id_ == user_id:
