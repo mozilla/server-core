@@ -50,6 +50,8 @@ import socket
 import re
 from functools import wraps
 import datetime
+from ConfigParser import ConfigParser
+import os
 
 from webob.exc import HTTPUnauthorized, HTTPServiceUnavailable
 from webob import Response
@@ -294,21 +296,38 @@ def valid_password(user_name, password):
 
 
 def convert_config(config):
-    """Converts boolean options when detected.
+    """Converts a configuration.
+
+    - boolean values are converted.
+    - value prefixed by "file:" are extra config files that will extend
+      the config. Each section becomes a prefix.
     """
     res = {}
+
+    # expanding the files
     for key, value in config.items():
-        if not isinstance(value, basestring):
+        if not value.startswith('file:'):
             res[key] = value
             continue
+        filename = value[len('file:'):]
+        if os.path.exists(filename):
+            parser = ConfigParser()
+            parser.read([filename])
+            for section in parser.sections():
+                for key, value in parser.items(section):
+                    key = '%s.%s' % (section, key)
+                    res[key] = value
 
+    # now converting
+    for key, value in res.items():
+        if not isinstance(value, basestring):
+            continue
         if value.lower() in ('1', 'yes', 'true', 'on'):
             res[key] = True
         elif value.lower() in ('0', 'no', 'false', 'off'):
             res[key] = False
         else:
             res[key] = value
-
     return res
 
 

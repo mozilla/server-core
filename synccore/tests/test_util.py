@@ -36,6 +36,8 @@
 import unittest
 import time
 from base64 import encodestring
+import tempfile
+import os
 
 from webob.exc import HTTPServiceUnavailable
 
@@ -57,6 +59,14 @@ class AuthTool(object):
 
     def authenticate_user(self, *args):
         return 1
+
+_EXTRA = """\
+[some]
+stuff = True
+
+[other]
+thing = ok
+"""
 
 
 class TestUtil(unittest.TestCase):
@@ -80,6 +90,19 @@ class TestUtil(unittest.TestCase):
         self.assertTrue(config['one'])
         self.assertEqual(config['two'], 'bla')
         self.assertFalse(config['three'])
+
+        # config also reads extra config files.
+        __, filename = tempfile.mkstemp()
+        try:
+            with open(filename, 'w') as f:
+                f.write(_EXTRA)
+
+            config = {'one': '1', 'two': 'file:%s' % filename}
+            config = convert_config(config)
+            self.assertTrue(config['some.stuff'])
+            self.assertEquals(config['other.thing'], 'ok')
+        finally:
+            os.remove(filename)
 
     def test_bigint2time(self):
         self.assertEquals(bigint2time(None), None)
