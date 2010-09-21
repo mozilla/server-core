@@ -306,7 +306,7 @@ def convert_config(config):
 
     # expanding the files
     for key, value in config.items():
-        if not value.startswith('file:'):
+        if not isinstance(value, str) or not value.startswith('file:'):
             res[key] = value
             continue
         filename = value[len('file:'):]
@@ -334,19 +334,15 @@ def convert_config(config):
 def filter_params(namespace, data, replace_dot='_', splitchar='.'):
     """Keeps only params that starts with the namespace.
     """
-    master_value = None
     params = {}
     for key, value in data.items():
-        if key == namespace:
-            master_value = value
-            continue
         if splitchar not in key:
             continue
         skey = key.split(splitchar)
         if skey[0] != namespace:
             continue
         params[replace_dot.join(skey[1:])] = value
-    return master_value, params
+    return params
 
 
 def batch(iterable, size=100):

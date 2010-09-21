@@ -77,10 +77,12 @@ class Plugin(object):
     @classmethod
     def get_from_config(cls, config):
         """Get a plugin from a config file."""
-        storage_location, params = filter_params(cls.name, config)
+        params = filter_params(cls.name, config)
+        storage_location = params.get('backend')
         if storage_location is None:
             raise KeyError(cls.name)
 
+        del params['backend']
         # let's load the location
         klass = _resolve_name(storage_location)
 

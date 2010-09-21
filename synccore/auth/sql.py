@@ -64,14 +64,15 @@ _USER_RESET_CODE = select([users.c.reset_expiration, users.c.reset],
 class SQLAuth(object):
     """SQL authentication."""
 
-    def __init__(self, sqluri=_SQLURI, pool_size=20, pool_recycle=3600):
-        kw = {'pool_size': int(pool_size), 'pool_recycle': int(pool_recycle),
-              'logging_name': 'weaveserver'}
+    def __init__(self, sqluri=_SQLURI, pool_size=20, pool_recycle=3600, **kw):
+        sqlkw = {'pool_size': int(pool_size),
+                 'pool_recycle': int(pool_recycle),
+                 'logging_name': 'weaveserver'}
 
         if sqluri.startswith('mysql'):
-            kw['reset_on_return'] = False
+            sqlkw['reset_on_return'] = False
 
-        self._engine = create_engine(sqluri, **kw)
+        self._engine = create_engine(sqluri, **sqlkw)
         users.metadata.bind = self._engine
         users.create(checkfirst=True)
         self.sqluri = sqluri

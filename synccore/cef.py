@@ -85,7 +85,7 @@ def auth_failure(message, severity, request, **kw):
     signature = _convert(_CEF_AUTH_FAILURE)
     name = _convert(message)
     severity = _convert(severity)
-    __, config = filter_params('cef', request.config)
+    config = filter_params('cef', request.config)
 
     kw.update({'severity': severity,
                'source': request.remote_addr,
