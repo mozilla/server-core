@@ -41,6 +41,8 @@ import datetime
 
 import ldap
 from ldap.modlist import addModlist
+from beaker.cache import CacheManager
+from beaker.util import parse_cache_config_options
 
 from sqlalchemy.ext.declarative import declarative_base, Column
 from sqlalchemy import Integer, String, DateTime
@@ -97,7 +99,7 @@ class LDAPAuth(object):
                  admin_password='adminuser', users_root='ou=users,dc=mozilla',
                  users_base_dn=None, pool_size=100, pool_recycle=3600,
                  reset_on_return=True, single_box=False,
-                 nodes_scheme='https'):
+                 nodes_scheme='https', **kw):
         self.ldapuri = ldapuri
         self.sqluri = sqluri
         self.bind_user = bind_user
@@ -112,16 +114,20 @@ class LDAPAuth(object):
         # by default, the ldap connections use the bind user
         self.pool = ConnectionPool(ldapuri, bind_user, bind_password,
                                    use_tls=use_tls)
-        kw = {'pool_size': int(pool_size),
-              'pool_recycle': int(pool_recycle),
-              'logging_name': 'weaveserver'}
+        sqlkw = {'pool_size': int(pool_size),
+                 'pool_recycle': int(pool_recycle),
+                 'logging_name': 'weaveserver'}
 
         if self.sqluri.startswith('mysql'):
-            kw['reset_on_return'] = reset_on_return
-        self._engine = create_engine(sqluri, **kw)
+            sqlkw['reset_on_return'] = reset_on_return
+        self._engine = create_engine(sqluri, **sqlkw)
         for table in tables:
             table.metadata.bind = self._engine
             table.create(checkfirst=True)
+        kw = dict([('cache.%s' % key[6:], value) for key, value in kw.items()
+                   if key.startswith('cache_')])
+        self.cache = CacheManager(**parse_cache_config_options(kw))
+        self.info_cache = self.cache.get_cache('user_info')
 
     def _conn(self, bind=None, passwd=None):
         return self.pool.connection(bind, passwd)
@@ -303,23 +309,26 @@ class LDAPAuth(object):
         Returns:
             tuple: username, email
         """
-        if self.users_root != 'md5':
-            dn = self.users_root
-            scope = ldap.SCOPE_SUBTREE
-        else:
-            dn = self._get_dn(user_id)
-            scope = ldap.SCOPE_BASE
+        def _get_user_info():
+            if self.users_root != 'md5':
+                dn = self.users_root
+                scope = ldap.SCOPE_SUBTREE
+            else:
+                dn = self._get_dn(user_id)
+                scope = ldap.SCOPE_BASE
 
-        with self._conn(self.admin_user, self.admin_password) as conn:
-            res = conn.search_s(dn, scope,
-                                filterstr='(uidNumber=%s)' % user_id,
-                                attrlist=['cn', 'mail'])
+            with self._conn(self.admin_user, self.admin_password) as conn:
+                res = conn.search_s(dn, scope,
+                                    filterstr='(uidNumber=%s)' % user_id,
+                                    attrlist=['cn', 'mail'])
 
-        if res is None or len(res) == 0:
-            return None, None
+            if res is None or len(res) == 0:
+                return None, None
 
-        res = res[0][1]
-        return res['cn'][0], res['mail'][0]
+            res = res[0][1]
+            return res['cn'][0], res['mail'][0]
+
+        return self.info_cache.get(key=user_id, createfunc=_get_user_info)
 
     def update_email(self, user_id, email):
         """Change the user e-mail
@@ -338,6 +347,7 @@ class LDAPAuth(object):
         with self._conn(self.admin_user, self.admin_password) as conn:
             res, __ = conn.modify_s(dn, user)
 
+        self.info_cache.remove_value(key=user_id)
         return res == ldap.RES_MODIFY
 
     def update_password(self, user_id, password):
@@ -370,6 +380,7 @@ class LDAPAuth(object):
         Returns:
             True if the deletion was successful, False otherwise
         """
+        self.info_cache.remove_value(key=user_id)
         user_id = str(user_id)
         user_name, __ = self.get_user_info(user_id)
         dn = self._get_dn(user_name)
