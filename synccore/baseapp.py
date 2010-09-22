@@ -56,8 +56,11 @@ from synccore import API_VERSION
 from synccore.auth.sql import SQLAuth
 WeaveAuth.register(SQLAuth)
 
-from synccore.auth.ldapsql import LDAPAuth
-WeaveAuth.register(LDAPAuth)
+try:
+    from synccore.auth.ldapsql import LDAPAuth
+    WeaveAuth.register(LDAPAuth)
+except ImportError:
+    pass
 
 from synccore.auth.dummy import DummyAuth
 WeaveAuth.register(DummyAuth)
