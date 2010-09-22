@@ -52,6 +52,16 @@ from synccore.util import authenticate_user, convert_config
 from synccore.auth import WeaveAuth
 from synccore import API_VERSION
 
+# pre-loading auth plugins the project provides to ease configuration
+from synccore.auth.sql import SQLAuth
+WeaveAuth.register(SQLAuth)
+
+from synccore.auth.ldapsql import LDAPAuth
+WeaveAuth.register(LDAPAuth)
+
+from synccore.auth.dummy import DummyAuth
+WeaveAuth.register(DummyAuth)
+
 # URL dispatching happens here
 # methods / match / controller / controller method / auth ?
 

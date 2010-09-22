@@ -78,19 +78,32 @@ class Plugin(object):
     def get_from_config(cls, config):
         """Get a plugin from a config file."""
         params = filter_params(cls.name, config)
-        storage_location = params.get('backend')
-        if storage_location is None:
-            raise KeyError(cls.name)
+        backend_name = params.get('backend')
+
+        # trying to load a direct backend name
+        backend = None
+        for entry in cls._abc_registry:
+            if entry.get_name() == backend_name:
+                backend = entry
+                break
+
+        if backend is None:
+            # its a code location maybe, let's load it
+            try:
+                backend = _resolve_name(backend_name)
+            except ImportError, e:
+                raise KeyError('Cannot load "%s" %s' % (backend_name, str(e)))
+
+            # let's register it on-the-fly
+            cls.register(backend)
+
+        if backend is None:
+            raise KeyError('No plugin registered for "%s"' % backend_name)
 
         del params['backend']
-        # let's load the location
-        klass = _resolve_name(storage_location)
-
-        # let's register it on-the-fly
-        cls.register(klass)
 
         # now returning an instance
-        return cls.get(klass.get_name(), **params)
+        return backend(**params)
 
     @classmethod
     def get(cls, name, **params):
