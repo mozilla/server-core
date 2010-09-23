@@ -78,7 +78,7 @@ class Plugin(object):
     def get_from_config(cls, config):
         """Get a plugin from a config file."""
         params = filter_params(cls.name, config)
-        backend_name = params.get('backend')
+        backend_name = params['backend']
 
         # trying to load a direct backend name
         backend = None
