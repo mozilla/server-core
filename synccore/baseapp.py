@@ -109,6 +109,9 @@ class SyncServerApp(object):
                                 method=method, conditions=dict(method=verbs),
                                 auth=auth)
 
+    def _before_call(self, request):
+        return {}
+
     @wsgify
     def __call__(self, request):
         if request.method in ('HEAD',):
@@ -116,6 +119,9 @@ class SyncServerApp(object):
 
         request.server_time = float('%.2f' % time.time())
         request.config = self.config
+
+        # pre-hook
+        before_headers = self._before_call(request)
 
         # removing the trailing slash
         url = request.environ['PATH_INFO'].rstrip('/')
@@ -162,6 +168,7 @@ class SyncServerApp(object):
 
         # setting up the X-Weave-Timestamp
         response.headers['X-Weave-Timestamp'] = str(request.server_time)
+        response.headers.update(before_headers)
         return response
 
     def _get_function(self, controller, method):
