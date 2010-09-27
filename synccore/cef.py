@@ -44,10 +44,14 @@ import re
 
 
 _HOST = socket.gethostname()
-_CEF_AUTH_FAILURE = 'AuthFail'
-_CEF_CAPTCHA_FAILURE = 'CaptchaFail'
-_CEF_OVERRIDE_FAILURE = 'InvalidAdmin'
-_CEF_ACCOUNT_LOCKED = 'AccountLockout'
+
+# pre-defined signatures
+AUTH_FAILURE = 'AuthFail'
+CAPTCHA_FAILURE = 'CaptchaFail'
+OVERRIDE_FAILURE = 'InvalidAdmin'
+ACCOUNT_LOCKED = 'AccountLockout'
+PASSWD_RESET_CLR = 'PasswordResetCleared'
+
 _CEF_FORMAT = ('%(date)s %(host)s CEF:%(version)s|%(vendor)s|%(product)s|'
                '%(device_version)s|%(signature)s|%(name)s|%(severity)s|'
                'cs1Label=requestClientApplication cs1=%(user_agent)s '
@@ -69,7 +73,7 @@ def _convert(data):
     return _FIND_PIPE.sub(r'\\\1', data)
 
 
-def auth_failure(message, severity, request, **kw):
+def log_failure(message, severity, request, signature=AUTH_FAILURE, **kw):
     """Creates a CEF record, and emit it in syslog or another file.
 
     Args:
@@ -82,7 +86,7 @@ def auth_failure(message, severity, request, **kw):
     # so this module is standalone
     from synccore.util import filter_params
 
-    signature = _convert(_CEF_AUTH_FAILURE)
+    signature = _convert(signature)
     name = _convert(message)
     severity = _convert(severity)
     config = filter_params('cef', request.config)

@@ -37,7 +37,7 @@ import unittest
 import os
 from tempfile import mkstemp
 
-from synccore.cef import auth_failure
+from synccore.cef import log_failure
 
 
 class FakeRequest(object):
@@ -60,7 +60,7 @@ class TestWeaveLogger(unittest.TestCase):
 
         try:
             # should not fail
-            auth_failure('xx|x', 5, request)
+            log_failure('xx|x', 5, request)
             with open(filename) as f:
                 content = f.read()
         finally:
@@ -72,7 +72,7 @@ class TestWeaveLogger(unittest.TestCase):
         # should fail
         request.headers['User-Agent'] = "|"
         self.assertRaises(ValueError,
-                          auth_failure, 'xxx', 5, request)
+                          log_failure, 'xxx', 5, request)
 
 
 def test_suite():

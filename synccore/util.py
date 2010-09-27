@@ -56,7 +56,7 @@ import os
 from webob.exc import HTTPUnauthorized, HTTPServiceUnavailable
 from webob import Response
 
-from synccore.cef import auth_failure
+from synccore.cef import log_failure
 
 # various authorization header names, depending on the setup
 _AUTH_HEADERS = ('Authorization', 'AUTHORIZATION', 'HTTP_AUTHORIZATION',
@@ -95,13 +95,13 @@ def authenticate_user(request, authtool, username=None):
 
             # let's reject the call if the url is not owned by the user
             if (username is not None and user_name != username):
-                auth_failure('Username Does Not Match URL', 7, request)
+                log_failure('Username Does Not Match URL', 7, request)
                 raise HTTPUnauthorized
 
             # let's try an authentication
             user_id = authtool.authenticate_user(user_name, password)
             if user_id is None:
-                auth_failure('Authentication Failed', 5, request)
+                log_failure('Authentication Failed', 5, request)
                 raise HTTPUnauthorized
 
             # we're all clear ! setting up REMOTE_USER and user_id
