@@ -37,7 +37,7 @@ from setuptools import setup, find_packages
 
 install_requires = ['SQLALchemy', 'PasteDeploy', 'WebOb', 'Mako', 'WebTest',
                     'recaptcha-client', 'Routes', 'simplejson', 'distribute',
-                    'repoze.profile', 'Beaker']
+                    'repoze.profile']
 
 extra_requires = {'full': ['MySQL-python', 'redis', 'python-ldap']}
 

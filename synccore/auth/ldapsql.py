@@ -41,8 +41,11 @@ import datetime
 
 import ldap
 from ldap.modlist import addModlist
-from beaker.cache import CacheManager
-from beaker.util import parse_cache_config_options
+
+try:
+    from memcache import Client
+except ImportError:
+    Client = None
 
 from sqlalchemy.ext.declarative import declarative_base, Column
 from sqlalchemy import Integer, String, DateTime
@@ -99,7 +102,8 @@ class LDAPAuth(object):
                  admin_password='adminuser', users_root='ou=users,dc=mozilla',
                  users_base_dn=None, pool_size=100, pool_recycle=3600,
                  reset_on_return=True, single_box=False,
-                 nodes_scheme='https', **kw):
+                 nodes_scheme='https', cache_servers='127.0.0.1:11211',
+                 **kw):
         self.ldapuri = ldapuri
         self.sqluri = sqluri
         self.bind_user = bind_user
@@ -126,8 +130,11 @@ class LDAPAuth(object):
             table.create(checkfirst=True)
         kw = dict([('cache.%s' % key[6:], value) for key, value in kw.items()
                    if key.startswith('cache_')])
-        self.cache = CacheManager(**parse_cache_config_options(kw))
-        self.info_cache = self.cache.get_cache('user_info')
+
+        if Client is not None:
+            self.cache = Client(cache_servers.split(','))
+        else:
+            self.cache = None
 
     def _conn(self, bind=None, passwd=None):
         return self.pool.connection(bind, passwd)
@@ -328,7 +335,19 @@ class LDAPAuth(object):
             res = res[0][1]
             return res['cn'][0], res['mail'][0]
 
-        return self.info_cache.get(key=user_id, createfunc=_get_user_info)
+        if self.cache is None:
+            return _get_user_info()
+
+        key = 'info:%s' % user_id
+        res = self.cache.get(key)
+        if res is not None:
+            return res
+
+        res = _get_user_info()
+        try:
+            self.cache.set(key, res)
+        finally:
+            return res
 
     def update_email(self, user_id, email):
         """Change the user e-mail
@@ -347,7 +366,8 @@ class LDAPAuth(object):
         with self._conn(self.admin_user, self.admin_password) as conn:
             res, __ = conn.modify_s(dn, user)
 
-        self.info_cache.remove_value(key=user_id)
+        if self.cache is not None:
+            self.cache.delete('info:%s' % user_id)
         return res == ldap.RES_MODIFY
 
     def update_password(self, user_id, password):
@@ -380,9 +400,11 @@ class LDAPAuth(object):
         Returns:
             True if the deletion was successful, False otherwise
         """
-        self.info_cache.remove_value(key=user_id)
         user_id = str(user_id)
         user_name, __ = self.get_user_info(user_id)
+        if self.cache is not None:
+            self.cache.delete('info:%s' % user_id)
+
         dn = self._get_dn(user_name)
         if password is None:
             return False   # we need a password
