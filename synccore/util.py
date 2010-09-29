@@ -50,13 +50,13 @@ import socket
 import re
 from functools import wraps
 import datetime
-from ConfigParser import ConfigParser
 import os
 
 from webob.exc import HTTPUnauthorized, HTTPServiceUnavailable
 from webob import Response
 
 from synccore.cef import log_failure
+from synccore.config import Config, convert
 
 # various authorization header names, depending on the setup
 _AUTH_HEADERS = ('Authorization', 'AUTHORIZATION', 'HTTP_AUTHORIZATION',
@@ -296,38 +296,28 @@ def valid_password(user_name, password):
 
 
 def convert_config(config):
-    """Converts a configuration.
+    """Loads the configuration.
 
-    - boolean values are converted.
-    - value prefixed by "file:" are extra config files that will extend
-      the config. Each section becomes a prefix.
+    If a "configuration" option is found, reads it using config.Config.
+    Each section/option is then converted to "section.option" in the resulting
+    mapping.
     """
     res = {}
-
-    # expanding the files
     for key, value in config.items():
-        if not isinstance(value, str) or not value.startswith('file:'):
-            res[key] = value
+        if not isinstance(value, basestring) or not value.startswith('file:'):
+            res[key] = convert(value)
             continue
+        # we load the configuration and inject it in the mapping
         filename = value[len('file:'):]
-        if os.path.exists(filename):
-            parser = ConfigParser()
-            parser.read([filename])
-            for section in parser.sections():
-                for key, value in parser.items(section):
-                    key = '%s.%s' % (section, key)
-                    res[key] = value
+        if not os.path.exists(filename):
+            raise ValueError('The configuration file was not found. "%s"' % \
+                            filename)
+        conf = Config(filename)
+        for section in conf.sections():
+            for option, value in conf.items(section):
+                option = '%s.%s' % (section, option)
+                res[option] = convert(value)
 
-    # now converting
-    for key, value in res.items():
-        if not isinstance(value, basestring):
-            continue
-        if value.lower() in ('1', 'yes', 'true', 'on'):
-            res[key] = True
-        elif value.lower() in ('0', 'no', 'false', 'off'):
-            res[key] = False
-        else:
-            res[key] = value
     return res
 
 

@@ -53,6 +53,37 @@ class EnvironmentNotFoundError(Error):
         self.varname = varname
 
 
+def convert(value):
+    """Converts a config value"""
+    def _get_env(matchobj):
+        var = matchobj.groups()[0]
+        if var not in os.environ:
+            raise EnvironmentNotFoundError(var)
+        return os.environ[var]
+
+    def _convert(value):
+        if not isinstance(value, basestring):
+            # already converted
+            return value
+
+        value = value.strip()
+        if _IS_NUMBER.match(value):
+            try:
+                return int(value)
+            except ValueError:
+                pass
+        elif value.startswith('"') and value.endswith('"'):
+            return value[1:-1]
+        elif value.lower() in ('true', 'false'):
+            return value.lower() == 'true'
+        return _IS_ENV_VAR.sub(_get_env, value)
+
+    if isinstance(value, basestring) and '\n' in value:
+        return [_convert(line) for line in value.split('\n')]
+
+    return _convert(value)
+
+
 class Config(RawConfigParser):
 
     def __init__(self, filename):
@@ -75,7 +106,7 @@ class Config(RawConfigParser):
             if not isinstance(extends, list):
                 extends = [extends]
             for file_ in extends:
-               self._extend(file_)
+                self._extend(file_)
 
     def _serialize(self, value):
         """values are serialized on every set"""
@@ -84,34 +115,14 @@ class Config(RawConfigParser):
         elif isinstance(value, (int, long)):
             value = str(value)
         elif isinstance(value, (list, tuple)):
-            value = '\n'.join(['    %s' % line for line in values]).strip()
+            value = '\n'.join(['    %s' % line for line in value]).strip()
         else:
             value = str(value)
         return value
 
     def _unserialize(self, value):
         """values are serialized on every get"""
-        def _get_env(matchobj):
-            var = matchobj.groups()[0]
-            if var not in os.environ:
-                raise EnvironmentNotFoundError(var)
-            return os.environ[var]
-
-        def _convert(value):
-            value = value.strip()
-            if _IS_NUMBER.match(value):
-                try:
-                    return int(value)
-                except ValueError:
-                    pass
-            elif value.startswith('"') and value.endswith('"'):
-                return value[1:-1]
-            return _IS_ENV_VAR.sub(_get_env, value)
-
-        if '\n' in value:
-            return [_convert(line) for line in value.split('\n')]
-
-        return _convert(value)
+        return convert(value)
 
     def set(self, section, option, value):
         value = self._serialize(value)
