@@ -102,7 +102,7 @@ class LDAPAuth(object):
                  admin_password='adminuser', users_root='ou=users,dc=mozilla',
                  users_base_dn=None, pool_size=100, pool_recycle=3600,
                  reset_on_return=True, single_box=False,
-                 nodes_scheme='https', cache_servers='127.0.0.1:11211',
+                 nodes_scheme='https', cache_servers=None,
                  **kw):
         self.ldapuri = ldapuri
         self.sqluri = sqluri
@@ -132,7 +132,11 @@ class LDAPAuth(object):
                    if key.startswith('cache_')])
 
         if Client is not None:
-            self.cache = Client(cache_servers.split(','))
+            if isinstance(cache_servers, str):
+                cache_servers = [cache_servers]
+            elif cache_servers is None:
+                cache_servers = ['127.0.0.1:11211']
+            self.cache = Client(cache_servers)
         else:
             self.cache = None
 
