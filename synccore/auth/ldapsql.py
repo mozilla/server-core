@@ -52,8 +52,9 @@ from sqlalchemy import Integer, String, DateTime
 from sqlalchemy import create_engine, SmallInteger
 from sqlalchemy.sql import bindparam, select, insert, delete, update
 
-from synccore.util import generate_reset_code, check_reset_code, ssha
-from synccore.auth import NodeAttributionError, BackendTimeoutError
+from synccore.util import (generate_reset_code, check_reset_code, ssha,
+                           BackendTimeoutError)
+from synccore.auth import NodeAttributionError
 from synccore.auth.ldappool import ConnectionPool
 
 _Base = declarative_base()

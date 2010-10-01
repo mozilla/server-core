@@ -44,11 +44,6 @@ class NodeAttributionError(Exception):
     pass
 
 
-class BackendTimeoutError(Exception):
-    """Raised when the backend times out."""
-    pass
-
-
 class WeaveAuth(Plugin):
     """Abstract Base Class for the authentication APIs."""
     name = 'auth'

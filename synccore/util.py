@@ -346,8 +346,16 @@ def batch(iterable, size=100):
         yield group
 
 
+class BackendTimeoutError(Exception):
+    """Raised when the backend times out."""
+    pass
+
+
 def raise_503(instance):
     """Will issue a 503 on any exception.
+
+    If the error is a timeout, will add a Retry-After header
+
     Args:
         instance: any instance of a class
 
@@ -360,6 +368,10 @@ def raise_503(instance):
         def __503_func(*args, **kw):
             try:
                 return func(*args, **kw)
+            except BackendTimeoutError, e:
+                exc = HTTPServiceUnavailable(str(e))
+                exc.headers['Retry-After'] = 120
+                raise exc
             except Exception, e:
                 raise HTTPServiceUnavailable(str(e))
         return __503_func
