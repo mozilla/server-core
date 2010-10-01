@@ -40,6 +40,12 @@ from synccore.plugin import Plugin
 
 
 class NodeAttributionError(Exception):
+    """Raised when the node attribution fails."""
+    pass
+
+
+class BackendTimeoutError(Exception):
+    """Raised when the backend times out."""
     pass
 
 

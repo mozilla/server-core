@@ -37,7 +37,11 @@
 """
 from contextlib import contextmanager
 from threading import RLock
+
 from ldap.ldapobject import ReconnectLDAPObject
+import ldap
+
+from synccore.auth import BackendTimeoutError
 
 
 class MaxConnectionReachedError(Exception):
@@ -67,7 +71,7 @@ class ConnectionPool(object):
     """
 
     def __init__(self, uri, bind=None, passwd=None, size=100, retry_max=10,
-                 retry_delay=1., use_tls=False, single_box=False):
+                 retry_delay=1., use_tls=False, single_box=False, timeout=-1):
         self._pool = []
         self.size = size
         self.retry_max = retry_max
@@ -77,6 +81,7 @@ class ConnectionPool(object):
         self.passwd = passwd
         self._pool_lock = RLock()
         self.use_tls = False
+        self.timeout = timeout
 
     def _get_connection(self, bind=None, passwd=None):
         if bind is None:
@@ -102,11 +107,16 @@ class ConnectionPool(object):
         conn = StateConnector(self.uri, retry_max=self.retry_max,
                               retry_delay=self.retry_delay)
 
+        conn.network_timeout = conn.timeout = self.timeout
+
         if self.use_tls:
             conn.start_tls_s()
 
         if bind is not None:
-            conn.simple_bind_s(bind, passwd)
+            try:
+                conn.simple_bind_s(bind, passwd)
+            except ldap.TIMEOUT:
+                raise BackendTimeoutError()
 
         conn.active = True
         self._pool_lock.acquire()

@@ -53,7 +53,7 @@ from sqlalchemy import create_engine, SmallInteger
 from sqlalchemy.sql import bindparam, select, insert, delete, update
 
 from synccore.util import generate_reset_code, check_reset_code, ssha
-from synccore.auth import NodeAttributionError
+from synccore.auth import NodeAttributionError, BackendTimeoutError
 from synccore.auth.ldappool import ConnectionPool
 
 _Base = declarative_base()
@@ -101,7 +101,7 @@ class LDAPAuth(object):
                  bind_password='binduser', admin_user='adminuser',
                  admin_password='adminuser', users_root='ou=users,dc=mozilla',
                  users_base_dn=None, pool_size=100, pool_recycle=3600,
-                 reset_on_return=True, single_box=False,
+                 reset_on_return=True, single_box=False, ldap_timeout=-1,
                  nodes_scheme='https', cache_servers=None,
                  **kw):
         self.ldapuri = ldapuri
@@ -115,9 +115,10 @@ class LDAPAuth(object):
         self.users_base_dn = users_base_dn
         self.single_box = single_box
         self.nodes_scheme = nodes_scheme
+        self.ldap_timeout = ldap_timeout
         # by default, the ldap connections use the bind user
         self.pool = ConnectionPool(ldapuri, bind_user, bind_password,
-                                   use_tls=use_tls)
+                                   use_tls=use_tls, timeout=ldap_timeout)
         sqlkw = {'pool_size': int(pool_size),
                  'pool_recycle': int(pool_recycle),
                  'logging_name': 'weaveserver'}
@@ -166,10 +167,13 @@ class LDAPAuth(object):
 
         with self._conn() as conn:
             try:
-                res = conn.search_s(dn, ldap.SCOPE_BASE,
-                                    attrlist=['uidNumber'])
+                res = conn.search_st(dn, ldap.SCOPE_BASE,
+                                    attrlist=['uidNumber'],
+                                    timeout=self.ldap_timeout)
             except ldap.NO_SUCH_OBJECT:
                 return None
+            except ldap.TIMEOUT:
+                raise BackendTimeoutError()
 
         if res is None:
             return None
@@ -205,7 +209,10 @@ class LDAPAuth(object):
         dn = self._get_dn(user_name)
 
         with self._conn() as conn:
-            res, __ = conn.add_s(dn, user)
+            try:
+                res, __ = conn.add_s(dn, user)
+            except ldap.TIMEOUT:
+                raise BackendTimeoutError()
 
         return res == ldap.RES_ADD
 
@@ -216,10 +223,13 @@ class LDAPAuth(object):
         dn = self._get_dn(user_name)
         try:
             with self._conn(dn, passwd) as conn:
-                user = conn.search_s(dn, ldap.SCOPE_BASE,
-                                     attrlist=['uidNumber', 'account-enabled'])
+                user = conn.search_st(dn, ldap.SCOPE_BASE,
+                                     attrlist=['uidNumber', 'account-enabled'],
+                                     timeout=self.ldap_timeout)
         except (ldap.NO_SUCH_OBJECT, ldap.INVALID_CREDENTIALS):
             return None
+        except ldap.TIMEOUT:
+            raise BackendTimeoutError()
 
         if user is None:
             return None
@@ -329,9 +339,13 @@ class LDAPAuth(object):
                 scope = ldap.SCOPE_BASE
 
             with self._conn(self.admin_user, self.admin_password) as conn:
-                res = conn.search_s(dn, scope,
-                                    filterstr='(uidNumber=%s)' % user_id,
-                                    attrlist=['cn', 'mail'])
+                try:
+                    res = conn.search_st(dn, scope,
+                                         filterstr='(uidNumber=%s)' % user_id,
+                                         attrlist=['cn', 'mail'],
+                                         timeout=self.ldap_timeout)
+                except ldap.TIMEOUT:
+                    raise BackendTimeoutError()
 
             if res is None or len(res) == 0:
                 return None, None
@@ -368,7 +382,10 @@ class LDAPAuth(object):
         dn = self._get_dn(user_name)
 
         with self._conn(self.admin_user, self.admin_password) as conn:
-            res, __ = conn.modify_s(dn, user)
+            try:
+                res, __ = conn.modify_s(dn, user)
+            except ldap.TIMEOUT:
+                raise BackendTimeoutError()
 
         if self.cache is not None:
             self.cache.delete('info:%s' % user_id)
@@ -390,7 +407,10 @@ class LDAPAuth(object):
         dn = self._get_dn(user_name)
 
         with self._conn(self.admin_user, self.admin_password) as conn:
-            res, __ = conn.modify_s(dn, user)
+            try:
+                res, __ = conn.modify_s(dn, user)
+            except ldap.TIMEOUT:
+                raise BackendTimeoutError()
 
         return res == ldap.RES_MODIFY
 
@@ -419,6 +439,8 @@ class LDAPAuth(object):
                     res, __ = conn.delete_s(dn)
                 except ldap.NO_SUCH_OBJECT:
                     return False
+                except ldap.TIMEOUT:
+                    raise BackendTimeoutError()
         except ldap.INVALID_CREDENTIALS:
             return False
 
@@ -434,8 +456,12 @@ class LDAPAuth(object):
 
         # getting the list of primary nodes
         with self._conn() as conn:
-            res = conn.search_s(dn, ldap.SCOPE_BASE,
-                                attrlist=['primaryNode'])
+            try:
+                res = conn.search_st(dn, ldap.SCOPE_BASE,
+                                     attrlist=['primaryNode'],
+                                     timeout=self.ldap_timeout)
+            except ldap.TIMEOUT:
+                raise BackendTimeoutError()
 
         res = res[0][1]
 
@@ -464,7 +490,10 @@ class LDAPAuth(object):
                 ['weave:%s' % node])]
 
         with self._conn(self.admin_user, self.admin_password) as conn:
-            ldap_res, __ = conn.modify_s(dn, user)
+            try:
+                ldap_res, __ = conn.modify_s(dn, user)
+            except ldap.TIMEOUT:
+                raise BackendTimeoutError()
 
         if ldap_res != ldap.RES_MODIFY:
             # unable to set the node in LDAP
