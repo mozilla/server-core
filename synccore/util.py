@@ -51,6 +51,7 @@ import re
 from functools import wraps
 import datetime
 import os
+import binascii
 
 from webob.exc import HTTPUnauthorized, HTTPServiceUnavailable
 from webob import Response
@@ -91,7 +92,10 @@ def authenticate_user(request, authtool, username=None):
                 raise HTTPUnauthorized('Invalid token')
 
             auth = auth.split('Basic ')[-1].strip()
-            user_name, password = base64.decodestring(auth).split(':')
+            try:
+                user_name, password = base64.decodestring(auth).split(':')
+            except binascii.Error:
+                raise HTTPUnauthorized('Invalid token')
 
             # let's reject the call if the url is not owned by the user
             if (username is not None and user_name != username):
