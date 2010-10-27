@@ -79,7 +79,9 @@ def convert(value):
         return _IS_ENV_VAR.sub(_get_env, value)
 
     if isinstance(value, basestring) and '\n' in value:
-        return [_convert(line) for line in value.split('\n')]
+        return [line for line in [_convert(line)
+                                  for line in value.split('\n')]
+                if line != '']
 
     return _convert(value)
 
