@@ -40,27 +40,23 @@ from tempfile import mkstemp
 from synccore.cef import log_failure
 
 
-class FakeRequest(object):
-
-    host = remote_addr = '127.0.0.1'
-    url = 'http://example.com'
-    method = 'GET'
-    headers = {'User-Agent': 'MySuperBrowser'}
-    config = {'cef.version': '0', 'cef.vendor': 'mozilla',
-              'cef.device_version': '3', 'cef.product': 'weave',
-              'cef': True}
-
-
 class TestWeaveLogger(unittest.TestCase):
 
     def test_cef_logging(self):
         # just make sure we escape "|" when appropriate
-        request = FakeRequest()
-        filename = request.config['cef.file'] = mkstemp()[1]
+        environ = {'REMOTE_ADDR': '127.0.0.1', 'HTTP_HOST': '127.0.0.1',
+                   'PATH_INFO': '/', 'REQUEST_METHOD': 'GET',
+                   'User-Agent': 'MySuperBrowser'}
+
+        config = {'cef.version': '0', 'cef.vendor': 'mozilla',
+                  'cef.device_version': '3', 'cef.product': 'weave',
+                  'cef': True}
+
+        filename = config['cef.file'] = mkstemp()[1]
 
         try:
             # should not fail
-            log_failure('xx|x', 5, request)
+            log_failure('xx|x', 5, environ, config)
             with open(filename) as f:
                 content = f.read()
         finally:
@@ -70,9 +66,9 @@ class TestWeaveLogger(unittest.TestCase):
         self.assertEquals(len(content.split('|')), 9)
 
         # should fail
-        request.headers['User-Agent'] = "|"
+        environ['User-Agent'] = "|"
         self.assertRaises(ValueError,
-                          log_failure, 'xxx', 5, request)
+                          log_failure, 'xxx', 5, environ, config)
 
 
 def test_suite():

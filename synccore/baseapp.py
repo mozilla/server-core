@@ -138,7 +138,7 @@ class SyncServerApp(object):
         if match['auth'] == 'True':
             # needs auth
             user_id = authenticate_user(request, self.authtool,
-                                        match.get('username'))
+                                        self.config, match.get('username'))
             if user_id is None:
                 raise HTTPUnauthorized
 

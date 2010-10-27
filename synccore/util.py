@@ -65,7 +65,7 @@ _AUTH_HEADERS = ('Authorization', 'AUTHORIZATION', 'HTTP_AUTHORIZATION',
 _RE_CODE = re.compile('[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}')
 
 
-def authenticate_user(request, authtool, username=None):
+def authenticate_user(request, authtool, config, username=None):
     """Authenticates a user and returns his id.
 
     "request" is the request received, "authtool" is the authentication tool
@@ -99,7 +99,8 @@ def authenticate_user(request, authtool, username=None):
 
             # let's reject the call if the url is not owned by the user
             if (username is not None and user_name != username):
-                log_failure('Username Does Not Match URL', 7, request)
+                log_failure('Username Does Not Match URL', 7, request.environ,
+                            config)
                 raise HTTPUnauthorized
 
             # let's try an authentication

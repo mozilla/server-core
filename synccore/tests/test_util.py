@@ -74,13 +74,13 @@ class TestUtil(unittest.TestCase):
     def test_authenticate_user(self):
         token = 'Basic ' + encodestring('tarek:tarek')
         req = Request('/1.0/tarek/info/collections', {})
-        res = authenticate_user(req, AuthTool())
+        res = authenticate_user(req, AuthTool(), {})
         self.assertEquals(res, None)
 
         # authenticated by auth
         req = Request('/1.0/tarek/info/collections',
                 {'Authorization': token})
-        res = authenticate_user(req, AuthTool())
+        res = authenticate_user(req, AuthTool(), {})
         self.assertEquals(res, 1)
 
     def test_convert_config(self):

@@ -73,14 +73,16 @@ def _convert(data):
     return _FIND_PIPE.sub(r'\\\1', data)
 
 
-def log_failure(message, severity, request, signature=AUTH_FAILURE, **kw):
+def log_failure(message, severity, environ, config, signature=AUTH_FAILURE,
+                **kw):
     """Creates a CEF record, and emit it in syslog or another file.
 
     Args:
-        message: message to log
-        severity: integer from 0 to 10
-        request: the request object
-        extra keywords: extra keys used in the CEF extension
+        - message: message to log
+        - severity: integer from 0 to 10
+        - environ: the WSGI environ object
+        - config: configuration dict
+        - extra keywords: extra keys used in the CEF extension
     """
     # XXX might want to remove the request dependency here
     # so this module is standalone
@@ -89,14 +91,20 @@ def log_failure(message, severity, request, signature=AUTH_FAILURE, **kw):
     signature = _convert(signature)
     name = _convert(message)
     severity = _convert(severity)
-    config = filter_params('cef', request.config)
+    config = filter_params('cef', config)
+
+    source = None
+    for header in ('X_FORWARDED_FOR', 'REMOTE_ADDR'):
+        if header in environ:
+            source = environ[header]
+            break
 
     kw.update({'severity': severity,
-               'source': request.remote_addr,
-               'method': request.method,
-               'url': request.url,
-               'dest': request.host,
-               'user_agent': request.headers.get('User-Agent', u'none'),
+               'source': source,
+               'method': environ['REQUEST_METHOD'],
+               'url': environ['PATH_INFO'],
+               'dest': environ['HTTP_HOST'],
+               'user_agent': environ.get('User-Agent', u'none'),
                'signature': signature,
                'name': name,
                'version': config['version'],
