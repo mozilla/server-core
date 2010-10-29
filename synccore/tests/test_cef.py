@@ -65,10 +65,23 @@ class TestWeaveLogger(unittest.TestCase):
 
         self.assertEquals(len(content.split('|')), 9)
 
-        # should fail
+        # should not fail and be properly escaped
         environ['HTTP_USER_AGENT'] = "|"
-        self.assertRaises(ValueError,
-                          log_failure, 'xxx', 5, environ, config)
+        try:
+            # should not fail
+            log_failure('xxx', 5, environ, config)
+            with open(filename) as f:
+                content = f.read()
+        finally:
+            if os.path.exists(filename):
+                os.remove(filename)
+
+        cs = 'cs1Label=requestClientApplication cs1=\| '
+        self.assertTrue(cs in content)
+
+        # should fail because extra keys shouldn't have pipes
+        self.assertRaises(ValueError, log_failure, 'xxx', 5, environ, config,
+                          **{'ba|d': 1})
 
 
 def test_suite():

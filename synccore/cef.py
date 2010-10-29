@@ -99,27 +99,28 @@ def log_failure(message, severity, environ, config, signature=AUTH_FAILURE,
             source = environ[header]
             break
 
-    kw.update({'severity': severity,
-               'source': source,
-               'method': environ['REQUEST_METHOD'],
-               'url': environ['PATH_INFO'],
-               'dest': environ['HTTP_HOST'],
-               'user_agent': environ.get('HTTP_USER_AGENT', u'none'),
-               'signature': signature,
-               'name': name,
-               'version': config['version'],
-               'vendor': config['vendor'],
-               'device_version': config['device_version'],
-               'product': config['product'],
-               'host': _HOST,
-               'date': strftime("%b %d %H:%M:%S")})
-
-    # make sure we don't have a | anymore
-    for key, value in kw.items():
-        value = _to_str(value)
-        if _FIND_PIPE.match(value):
-            msg = '"%s" cannot contain a "|" char: "%s"' % (key, value)
+    # make sure we don't have a | anymore in regular fields
+    for key in kw:
+        if len(_FIND_PIPE.findall(key)) > 0:
+            msg = '"%s" cannot contain a "|" or "=" char' % key
             raise ValueError(msg)
+
+    fields = {'severity': severity,
+              'source': source,
+              'method': _convert(environ['REQUEST_METHOD']),
+              'url': _convert(environ['PATH_INFO']),
+              'dest': _convert(environ['HTTP_HOST']),
+              'user_agent': _convert(environ.get('HTTP_USER_AGENT', u'none')),
+              'signature': signature,
+              'name': name,
+              'version': config['version'],
+              'vendor': config['vendor'],
+              'device_version': config['device_version'],
+              'product': config['product'],
+              'host': _HOST,
+              'date': strftime("%b %d %H:%M:%S")}
+
+    kw.update(fields)
 
     msg = _CEF_FORMAT % kw
 
