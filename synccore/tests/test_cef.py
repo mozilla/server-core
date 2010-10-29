@@ -66,7 +66,7 @@ class TestWeaveLogger(unittest.TestCase):
         self.assertEquals(len(content.split('|')), 9)
 
         # should fail
-        environ['User-Agent'] = "|"
+        environ['HTTP_USER_AGENT'] = "|"
         self.assertRaises(ValueError,
                           log_failure, 'xxx', 5, environ, config)
 
