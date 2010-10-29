@@ -46,7 +46,7 @@ class TestWeaveLogger(unittest.TestCase):
         # just make sure we escape "|" when appropriate
         environ = {'REMOTE_ADDR': '127.0.0.1', 'HTTP_HOST': '127.0.0.1',
                    'PATH_INFO': '/', 'REQUEST_METHOD': 'GET',
-                   'User-Agent': 'MySuperBrowser'}
+                   'HTTP_USER_AGENT': 'MySuperBrowser'}
 
         config = {'cef.version': '0', 'cef.vendor': 'mozilla',
                   'cef.device_version': '3', 'cef.product': 'weave',
