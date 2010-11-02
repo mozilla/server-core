@@ -108,8 +108,32 @@ class SyncServerApp(object):
                                 method=method, conditions=dict(method=verbs),
                                 auth=auth)
 
+        # loads host-specific configuration
+        self._host_configs = {}
+
     def _before_call(self, request):
         return {}
+
+    def _host_specific(self, request, config):
+        """Will compute host-specific requests"""
+        if request.host in self._host_configs:
+            return self._host_configs[request.host]
+
+        # overrides the original value with the host-specific value
+        host_section = 'host:%s.' % request.host
+        host_config = {}
+        overriden_keys = []
+        for key, value in config.items():
+            if key in overriden_keys:
+                continue
+
+            if key.startswith(host_section):
+                key = key[len(host_section):]
+                overriden_keys.append(key)
+            host_config[key] = value
+
+        self._host_configs[request.host] = host_config
+        return host_config
 
     @wsgify
     def __call__(self, request):
@@ -117,15 +141,17 @@ class SyncServerApp(object):
             raise HTTPBadRequest('"%s" not supported' % request.method)
 
         request.server_time = float('%.2f' % time.time())
-        request.config = self.config
+
+        # gets request-specific config
+        request.config = self._host_specific(request, self.config)
 
         # pre-hook
         before_headers = self._before_call(request)
 
         # removing the trailing slash
-        url = request.environ['PATH_INFO'].rstrip('/')
+        url = request.path_info.rstrip('/')
         if url != '':
-            request.environ['PATH_INFO'] = url
+            request.environ['PATH_INFO'] = request.path_info = url
         match = self.mapper.routematch(environ=request.environ)
 
         if match is None:
@@ -149,7 +175,6 @@ class SyncServerApp(object):
 
         # extracting all the info from the headers and the url
         request.sync_info = match
-        request.config = self.config
 
         if request.method in ('GET', 'DELETE'):
             # XXX DELETE fills the GET dict.
