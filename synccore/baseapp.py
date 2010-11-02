@@ -41,7 +41,6 @@ import time
 from paste.translogger import TransLogger
 from paste.exceptions.errormiddleware import ErrorMiddleware
 
-from repoze.profile.profiler import AccumulatingProfileMiddleware
 from routes import Mapper
 
 from webob.dec import wsgify
@@ -190,9 +189,10 @@ def set_app(urls, controllers, klass=SyncServerApp):
 
         if params.get('translogger', False):
             app = TransLogger(app, logger_name='weaveserver',
-                            setup_console_handler=True)
+                              setup_console_handler=True)
 
         if params.get('profile', False):
+            from repoze.profile.profiler import AccumulatingProfileMiddleware
             app = AccumulatingProfileMiddleware(app,
                                           log_filename='profile.log',
                                           cachegrind_filename='cachegrind.out',
