@@ -1,5 +1,5 @@
-%define name python26-syncstorage
-%define pythonname SyncStorage
+%define name python26-syncore
+%define pythonname SyncCore
 %define version 0.1
 %define unmangled_version 0.1
 %define unmangled_version 0.1
