@@ -35,11 +35,8 @@
 # ***** END LICENSE BLOCK *****
 from setuptools import setup, find_packages
 
-install_requires = ['SQLALchemy', 'PasteDeploy', 'WebOb', 'Mako', 'WebTest',
-                    'recaptcha-client', 'Routes', 'simplejson', 'distribute']
-
-extra_requires = {'full': ['MySQL-python', 'redis', 'python-ldap']}
-
+install_requires = ['SQLALchemy', 'Paste', 'PasteDeploy', 'WebOb', 'Routes',
+                    'simplejson', 'distribute']
 
 setup(name='SyncCore', version=0.1, packages=find_packages(),
       install_requires=install_requires)

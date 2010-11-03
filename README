@@ -1,8 +1,12 @@
-========
-Sync 1.1
-========
+=========
+Sync Core
+=========
 
-This is the Python implementation of the Sync Server 1.1.
+Core library that provides these features:
 
-The documentation is located in the doc folder.
-
+- CEF logger
+- Config reader/writer
+- Plugin system
+- Base WSGI application for Sync servers
+- Error codes for Sync
+- Authentication back ends for Sync
