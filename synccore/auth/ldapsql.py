@@ -45,7 +45,7 @@ from ldap.modlist import addModlist
 try:
     from memcache import Client
 except ImportError:
-    Client = None
+    Client = None   # NOQA
 
 from sqlalchemy.ext.declarative import declarative_base, Column
 from sqlalchemy import Integer, String, DateTime

@@ -56,8 +56,8 @@ import binascii
 from webob.exc import HTTPUnauthorized, HTTPServiceUnavailable
 from webob import Response
 
-from synccore.cef import log_failure
-from synccore.config import Config, convert
+from services.cef import log_failure
+from services.config import Config, convert
 
 # various authorization header names, depending on the setup
 _AUTH_HEADERS = ('Authorization', 'AUTHORIZATION', 'HTTP_AUTHORIZATION',

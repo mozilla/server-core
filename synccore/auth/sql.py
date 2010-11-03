@@ -40,6 +40,7 @@ Users are stored with digest password (ssha256)
 import datetime
 
 from sqlalchemy import create_engine
+from sqlalchemy.interfaces import PoolListener
 from sqlalchemy.sql import bindparam, select, insert, update, delete
 
 from synccore.util import (validate_password, ssha256, check_reset_code,
@@ -61,6 +62,14 @@ _USER_RESET_CODE = select([users.c.reset_expiration, users.c.reset],
                           users.c.id == bindparam('user_id'))
 
 
+class SetTextFactory(PoolListener):
+    """This ensures strings are not converted to unicode on queries
+    when using SQLite
+    """
+    def connect(self, dbapi_con, con_record):
+        dbapi_con.text_factory = str
+
+
 class SQLAuth(object):
     """SQL authentication."""
 
@@ -71,6 +80,9 @@ class SQLAuth(object):
 
         if sqluri.startswith('mysql'):
             sqlkw['reset_on_return'] = False
+
+        if sqluri.startswith('sqlite'):
+            sqlkw['listeners'] = [SetTextFactory()]
 
         self._engine = create_engine(sqluri, **sqlkw)
         users.metadata.bind = self._engine

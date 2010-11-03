@@ -37,7 +37,7 @@ import unittest
 import os
 from tempfile import mkstemp
 
-from synccore.cef import log_failure
+from services.cef import log_failure
 
 
 class TestWeaveLogger(unittest.TestCase):

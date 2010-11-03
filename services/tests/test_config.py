@@ -38,7 +38,7 @@ import tempfile
 import os
 from StringIO import StringIO
 
-from synccore.config import Config, EnvironmentNotFoundError
+from services.config import Config, EnvironmentNotFoundError
 
 
 _FILE_ONE = """\
