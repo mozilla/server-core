@@ -209,7 +209,7 @@ class LDAPAuth(object):
         user = addModlist(user)
         dn = self._get_dn(user_name)
 
-        with self._conn() as conn:
+        with self._conn(self.admin_user, self.admin_password) as conn:
             try:
                 res, __ = conn.add_s(dn, user)
             except ldap.TIMEOUT:
