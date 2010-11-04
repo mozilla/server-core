@@ -318,11 +318,9 @@ def convert_config(config):
         if not os.path.exists(filename):
             raise ValueError('The configuration file was not found. "%s"' % \
                             filename)
+
         conf = Config(filename)
-        for section in conf.sections():
-            for option, value in conf.items(section):
-                option = '%s.%s' % (section, option)
-                res[option] = convert(value)
+        res.update(conf.get_map())
 
     return res
 
