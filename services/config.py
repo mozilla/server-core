@@ -126,6 +126,18 @@ class Config(RawConfigParser):
         """values are serialized on every get"""
         return convert(value)
 
+    def get_map(self, section=None):
+        """returns a dict representing the config set"""
+        if section:
+            return dict(self.items(section))
+
+        res = {}
+        for section in self.sections():
+            for option, value in self.items(section):
+                option = '%s.%s' % (section, option)
+                res[option] = self._unserialize(value)
+        return res
+
     def set(self, section, option, value):
         value = self._serialize(value)
         RawConfigParser.set(self, section, option, value)

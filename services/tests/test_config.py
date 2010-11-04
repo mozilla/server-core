@@ -95,6 +95,14 @@ class ConfigTestCase(unittest.TestCase):
         self.assertEquals(config.get('one', 'lines'), [1, 'two', 3])
         self.assertEquals(config.get('one', 'env'), 'some stuff')
 
+        #getting a map
+        map = config.get_map()
+        self.assertEquals(map['one.foo'], 'bar')
+ 
+        map = config.get_map('one')
+        self.assertEquals(map['foo'], 'bar')
+ 
+
         del os.environ['__STUFF__']
         self.assertRaises(EnvironmentNotFoundError, config.get, 'one', 'env')
 

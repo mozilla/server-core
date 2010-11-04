@@ -83,11 +83,3 @@ class TestWeaveLogger(unittest.TestCase):
         self.assertRaises(ValueError, log_failure, 'xxx', 5, environ, config,
                           **{'ba|d': 1})
 
-
-def test_suite():
-    suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(TestWeaveLogger))
-    return suite
-
-if __name__ == "__main__":
-    unittest.main(defaultTest="test_suite")
