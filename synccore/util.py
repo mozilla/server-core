@@ -53,7 +53,8 @@ import datetime
 import os
 import binascii
 
-from webob.exc import HTTPUnauthorized, HTTPServiceUnavailable
+from webob.exc import (HTTPUnauthorized, HTTPServiceUnavailable,
+                       HTTPBadRequest)
 from webob import Response
 
 from services.cef import log_failure
@@ -419,3 +420,23 @@ def check_reset_code(code):
         True or False
     """
     return _RE_CODE.match(code) is not None
+
+
+class HTTPJsonBadRequest(HTTPBadRequest):
+    """Allow WebOb Exception to hold Json responses.
+
+    XXX Should be fixed in WebOb
+    """
+    def generate_response(self, environ, start_response):
+        if self.content_length is not None:
+            del self.content_length
+
+        headerlist = [(key, value) for key, value in
+                      list(self.headerlist)
+                      if key != 'Content-Type']
+        body = json.dumps(self.detail)
+        resp = Response(body,
+            status=self.status,
+            headerlist=headerlist,
+            content_type='application/json')
+        return resp(environ, start_response)
