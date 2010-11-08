@@ -49,7 +49,6 @@ from webob import Response
 
 from synccore.util import authenticate_user, convert_config
 from synccore.auth import WeaveAuth
-from synccore import API_VERSION
 
 # pre-loading auth plugins the project provides to ease configuration
 from synccore.auth.sql import SQLAuth
@@ -67,7 +66,7 @@ WeaveAuth.register(DummyAuth)
 # URL dispatching happens here
 # methods / match / controller / controller method / auth ?
 
-# _API_ is replaced by API_VERSION
+# _API_ is replaced by {api:1.0|1}
 # _COLLECTION_ is replaced by {collection:[a-zA-Z0-9._-]+}
 # _USERNAME_ is replaced by {username:[a-zA-Z0-9._-]+}
 # _ITEM_ is replaced by {item:[\\a-zA-Z0-9._?#~-]+}
@@ -95,7 +94,7 @@ class SyncServerApp(object):
         for verbs, match, controller, method, auth in urls:
             if isinstance(verbs, str):
                 verbs = [verbs]
-            for pattern, replacer in (('_API_', API_VERSION),
+            for pattern, replacer in (('_API_', '{api:1.0|1}'),
                                       ('_COLLECTION_',
                                        '{collection:[a-zA-Z0-9._-]+}'),
                                       ('_USERNAME_',
@@ -158,7 +157,6 @@ class SyncServerApp(object):
             return HTTPNotFound()
 
         match, __ = match
-        match['api'] = API_VERSION
 
         if match['auth'] == 'True':
             # needs auth

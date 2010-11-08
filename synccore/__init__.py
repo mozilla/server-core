@@ -36,4 +36,3 @@
 import logging
 
 logger = logging.getLogger('weaveserver')
-API_VERSION = '{api:1.0|1}'
