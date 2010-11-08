@@ -102,13 +102,13 @@ def authenticate_user(request, authtool, config, username=None):
             if (username is not None and user_name != username):
                 log_failure('Username Does Not Match URL', 7, request.environ,
                             config)
-                raise HTTPUnauthorized
+                raise HTTPUnauthorized()
 
             # let's try an authentication
             user_id = authtool.authenticate_user(user_name, password)
             if user_id is None:
                 log_failure('Authentication Failed', 5, request)
-                raise HTTPUnauthorized
+                raise HTTPUnauthorized()
 
             # we're all clear ! setting up REMOTE_USER and user_id
             request.environ['REMOTE_USER'] = user_name
