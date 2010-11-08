@@ -124,9 +124,9 @@ def text_response(data):
     return Response(str(data), content_type='text/plain')
 
 
-def json_response(lines):
+def json_response(data):
     """Returns Response containing a json string"""
-    return Response(json.dumps(lines), content_type='application/json')
+    return Response(json.dumps(data), content_type='application/json')
 
 
 def newlines_response(lines):
