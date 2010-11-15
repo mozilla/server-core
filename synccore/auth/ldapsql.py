@@ -104,7 +104,9 @@ class LDAPAuth(object):
                  users_base_dn=None, pool_size=100, pool_recycle=3600,
                  reset_on_return=True, single_box=False, ldap_timeout=-1,
                  nodes_scheme='https', cache_servers=None,
+                 check_account_state=True,
                  **kw):
+        self.check_account_state = check_account_state
         self.ldapuri = ldapuri
         self.sqluri = sqluri
         self.bind_user = bind_user
@@ -169,8 +171,8 @@ class LDAPAuth(object):
         with self._conn() as conn:
             try:
                 res = conn.search_st(dn, ldap.SCOPE_BASE,
-                                    attrlist=['uidNumber'],
-                                    timeout=self.ldap_timeout)
+                                     attrlist=['uidNumber'],
+                                     timeout=self.ldap_timeout)
             except ldap.NO_SUCH_OBJECT:
                 return None
             except ldap.TIMEOUT:
@@ -222,11 +224,15 @@ class LDAPAuth(object):
 
         Returns the user id in case of success. Returns None otherwise."""
         dn = self._get_dn(user_name)
+        attrs = ['uidNumber']
+        if self.check_account_state:
+            attrs.append('account-enabled')
+
         try:
             with self._conn(dn, passwd) as conn:
                 user = conn.search_st(dn, ldap.SCOPE_BASE,
-                                     attrlist=['uidNumber', 'account-enabled'],
-                                     timeout=self.ldap_timeout)
+                                      attrlist=attrs,
+                                      timeout=self.ldap_timeout)
         except (ldap.NO_SUCH_OBJECT, ldap.INVALID_CREDENTIALS):
             return None
         except ldap.TIMEOUT:
@@ -236,7 +242,7 @@ class LDAPAuth(object):
             return None
 
         user = user[0][1]
-        if user['account-enabled'][0] != 'Yes':
+        if self.check_account_state and user['account-enabled'][0] != 'Yes':
             return None
 
         return user['uidNumber'][0]

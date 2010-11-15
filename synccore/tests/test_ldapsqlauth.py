@@ -34,16 +34,15 @@
 #
 # ***** END LICENSE BLOCK *****
 import unittest
-
 try:
     import ldap
-    from synccore.auth.ldapsql import StateConnector, LDAPAuth
+    from synccore.auth.ldappool import StateConnector
+    from synccore.auth.ldapsql import LDAPAuth
     LDAP = True
 except ImportError:
     LDAP = False
 
 if LDAP:
-    # patching StateConnector
     StateConnector.users = {'uid=tarek,ou=users,dc=mozilla':
                                         {'uidNumber': ['1'],
                                          'account-enabled': ['Yes'],
@@ -71,7 +70,7 @@ if LDAP:
 
         raise ldap.NO_SUCH_OBJECT
 
-    StateConnector.search_s = _search
+    StateConnector.search_st = _search
 
     def _add(self, dn, user):
         self.users[dn] = {}
@@ -79,7 +78,6 @@ if LDAP:
             if not isinstance(value, list):
                 value = [value]
             self.users[dn][key] = value
-
         return ldap.RES_ADD, ''
 
     StateConnector.add_s = _add
@@ -184,3 +182,47 @@ class TestLDAPSQLAuth(unittest.TestCase):
         uid = auth.get_user_id('tarek')
         auth_uid = auth.authenticate_user('tarek', 'tarek')
         self.assertEquals(auth_uid, uid)
+
+
+    def _create_user(self, auth, user_name, password, email):
+        from synccore.auth.ldapsql import *
+        user_name = str(user_name)
+        user_id = auth._get_next_user_id()
+        password_hash = ssha(password)
+        key = '%s%s' % (random.randint(0, 9999999), user_name)
+        key = sha1(key).hexdigest()
+
+        user = {'cn': user_name,
+                'sn': user_name,
+                'uid': user_name,
+                'uidNumber': str(user_id),
+                'primaryNode': 'weave:',
+                'rescueNode': 'weave:',
+                'userPassword': password_hash,
+                'account-enabled': 'XXXX',
+                'mail': email,
+                'mail-verified': key,
+                'objectClass': ['dataStore', 'inetOrgPerson']}
+
+        user = addModlist(user)
+        dn = auth._get_dn(user_name)
+
+        with auth._conn(auth.admin_user, auth.admin_password) as conn:
+            try:
+                res, __ = conn.add_s(dn, user)
+            except ldap.TIMEOUT:
+                raise BackendTimeoutError()
+
+        return res == ldap.RES_ADD
+
+
+    def test_no_disabled_check(self):
+        if not LDAP:
+            return
+        auth = LDAPAuth('ldap://localhost', 'sqlite:///:memory:',
+                        users_base_dn='dc=mozilla',
+                        check_account_state=False)
+
+        self._create_user(auth, 'tarek', 'tarek', 'tarek@ziade.org')
+        uid = auth.authenticate_user('tarek', 'tarek')
+        self.assertTrue(uid is not None)
