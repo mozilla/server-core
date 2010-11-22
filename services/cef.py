@@ -33,11 +33,46 @@
 # the terms of any one of the MPL, the GPL or the LGPL.
 #
 # ***** END LICENSE BLOCK *****
+import sys
 try:
-    from syslog import syslog
+    import syslog
+    _SYSLOG_OPTIONS = {'PID': syslog.LOG_PID,
+                       'CONS': syslog.LOG_CONS,
+                       'NDELAY': syslog.LOG_NDELAY,
+                       'NOWAIT': syslog.LOG_NOWAIT,
+                       'PERROR': syslog.LOG_PERROR}
+
+    _SYSLOG_PRIORITY = {'EMERG': syslog.LOG_EMERG,
+                        'ALERT': syslog.LOG_ALERT,
+                        'CRIT': syslog.LOG_CRIT,
+                        'ERR': syslog.LOG_ERR,
+                        'WARNING': syslog.LOG_WARNING,
+                        'NOTICE': syslog.LOG_NOTICE,
+                        'INFO': syslog.LOG_INFO,
+                        'DEBUG': syslog.LOG_DEBUG}
+
+    _SYSLOG_FACILITY = {'KERN': syslog.LOG_KERN,
+                        'USER': syslog.LOG_USER,
+                        'MAIL': syslog.LOG_MAIL,
+                        'DAEMON': syslog.LOG_DAEMON,
+                        'AUTH': syslog.LOG_AUTH,
+                        'LPR': syslog.LOG_LPR,
+                        'NEWS': syslog.LOG_NEWS,
+                        'UUCP': syslog.LOG_UUCP,
+                        'CRON': syslog.LOG_CRON,
+                        'LOCAL0': syslog.LOG_LOCAL0,
+                        'LOCAL1': syslog.LOG_LOCAL1,
+                        'LOCAL2': syslog.LOG_LOCAL2,
+                        'LOCAL3': syslog.LOG_LOCAL3,
+                        'LOCAL4': syslog.LOG_LOCAL4,
+                        'LOCAL5': syslog.LOG_LOCAL5,
+                        'LOCAL6': syslog.LOG_LOCAL6,
+                        'LOCAL7': syslog.LOG_LOCAL7}
     SYSLOG = True
 except ImportError:
+    _SYSLOG_OPTIONS = _SYSLOG_PRIORITY = _SYSLOG_FACILITY = None
     SYSLOG = False
+
 import socket
 from time import strftime
 import re
@@ -71,6 +106,37 @@ def _convert(data):
     """Escapes | and = and convert to utf8 string"""
     data = _to_str(data)
     return _FIND_PIPE.sub(r'\\\1', data)
+
+
+_LOG_OPENED = False
+
+
+def _openlog(ident=sys.argv[0], logopt=0, facility=8):
+    """Opens the log with configured options"""
+    global _LOG_OPENED
+    syslog.openlog(ident, logopt, facility)
+    _LOG_OPENED = True
+
+
+def _str2logopt(value):
+    if value is None:
+        return 0
+    res = 0
+    for option in value.split(','):
+        res = res | _SYSLOG_OPTIONS[option.strip()]
+    return res
+
+
+def _str2priority(value):
+    if value is None:
+        return syslog.LOG_INFO
+    return _SYSLOG_PRIORITY[value.strip()]
+
+
+def _str2facility(value):
+    if value is None:
+        return syslog.LOG_USER
+    return _SYSLOG_FACILITY[value.strip()]
 
 
 def log_failure(message, severity, environ, config, signature=AUTH_FAILURE,
@@ -127,7 +193,14 @@ def log_failure(message, severity, environ, config, signature=AUTH_FAILURE,
     if config['file'] == 'syslog':
         if not SYSLOG:
             raise ValueError('syslog not supported on this platform')
-        syslog(msg)
+
+        if not _LOG_OPENED:
+            logopt = _str2logopt(config.get('syslog_options'))
+            facility = _str2facility(config.get('syslog_facility'))
+            _openlog(config.get('syslog_ident', sys.argv[0]), logopt, facility)
+
+        priority = _str2priority(config.get('syslog.priority'))
+        syslog.syslog(priority, msg)
     else:
         with open(config['file'], 'a') as f:
             f.write('%s\n' % msg)
