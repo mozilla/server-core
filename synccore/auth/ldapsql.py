@@ -132,8 +132,6 @@ class LDAPAuth(object):
         for table in tables:
             table.metadata.bind = self._engine
             table.create(checkfirst=True)
-        kw = dict([('cache.%s' % key[6:], value) for key, value in kw.items()
-                   if key.startswith('cache_')])
 
         if Client is not None:
             if isinstance(cache_servers, str):
