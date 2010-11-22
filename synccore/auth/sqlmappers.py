@@ -35,6 +35,7 @@
 # ***** END LICENSE BLOCK *****
 """ SQL Mappers
 """
+from sqlalchemy.schema import UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base, Column
 from sqlalchemy import Integer, String, DateTime, Text, BigInteger
 
@@ -57,6 +58,7 @@ tables.append(collections)
 
 class Users(_Base):
     __tablename__ = 'users'
+    __table_args__  = (UniqueConstraint('username', 'password_hash'), {})
 
     id = Column(Integer, primary_key=True, nullable=False)
     username = Column(String(32))
