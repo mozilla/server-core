@@ -36,7 +36,7 @@
 from setuptools import setup, find_packages
 
 install_requires = ['SQLALchemy', 'Paste', 'PasteDeploy', 'WebOb', 'Routes',
-                    'simplejson', 'distribute']
+                    'simplejson']
 
 setup(name='SyncCore', version=0.1, packages=find_packages(),
       install_requires=install_requires)
