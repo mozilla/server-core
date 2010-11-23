@@ -176,8 +176,8 @@ class SyncServerApp(object):
         # extracting all the info from the headers and the url
         request.sync_info = match
 
+        # the GET mapping is filled on GET and DELETE requests
         if request.method in ('GET', 'DELETE'):
-            # XXX DELETE fills the GET dict.
             params = dict(request.GET)
         else:
             params = {}
