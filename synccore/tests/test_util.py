@@ -39,7 +39,7 @@ from base64 import encodestring
 import tempfile
 import os
 
-from webob.exc import HTTPServiceUnavailable
+from webob.exc import HTTPServiceUnavailable, HTTPUnauthorized
 
 from synccore.util import (authenticate_user, convert_config, bigint2time,
                            time2bigint, valid_email, batch, raise_503,
