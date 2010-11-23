@@ -43,61 +43,64 @@ except ImportError:
     LDAP = False
 
 if LDAP:
-    StateConnector.users = {'uid=tarek,ou=users,dc=mozilla':
-                                        {'uidNumber': ['1'],
-                                         'account-enabled': ['Yes'],
-                                         'mail': ['tarek@mozilla.com'],
-                                         'cn': ['tarek']},
-                            'cn=admin,dc=mozilla': {'cn': ['admin'],
-                                                    'mail': ['admin'],
-                                                    'uidNumber': ['100']}}
+    # memory ldap connector for the tests
+    class MemoryStateConnector(StateConnector):
 
-    def _simple_bind(self, who, *args):
-        self.connected = True
-        self.who = who
+        users = {'uid=tarek,ou=users,dc=mozilla':
+                {'uidNumber': ['1'],
+                 'account-enabled': ['Yes'],
+                 'mail': ['tarek@mozilla.com'],
+                 'cn': ['tarek']},
+                 'cn=admin,dc=mozilla': {'cn': ['admin'],
+                 'mail': ['admin'],
+                 'uidNumber': ['100']}}
 
-    StateConnector.simple_bind_s = _simple_bind
+        def __init__(self):
+            pass
 
-    def _search(self, dn, *args, **kw):
-        if dn in self.users:
-            return [(dn, self.users[dn])]
-        elif dn == 'ou=users,dc=mozilla':
-            uid = kw['filterstr'].split('=')[-1][:-1]
-            for dn_, value in self.users.items():
-                if value['uidNumber'][0] != uid:
-                    continue
-                return [(dn_, value)]
+        def simple_bind_s(self, who, *args):
+            self.connected = True
+            self.who = who
 
-        raise ldap.NO_SUCH_OBJECT
+        def search_st(self, dn, *args, **kw):
+            if dn in self.users:
+                return [(dn, self.users[dn])]
+            elif dn == 'ou=users,dc=mozilla':
+                uid = kw['filterstr'].split('=')[-1][:-1]
+                for dn_, value in self.users.items():
+                    if value['uidNumber'][0] != uid:
+                        continue
+                    return [(dn_, value)]
+            raise ldap.NO_SUCH_OBJECT
 
-    StateConnector.search_st = _search
-
-    def _add(self, dn, user):
-        self.users[dn] = {}
-        for key, value in user:
-            if not isinstance(value, list):
-                value = [value]
-            self.users[dn][key] = value
-        return ldap.RES_ADD, ''
-
-    StateConnector.add_s = _add
-
-    def _modify(self, dn, user):
-        if dn in self.users:
-            for type_, key, value in user:
+        def add_s(self, dn, user):
+            self.users[dn] = {}
+            for key, value in user:
                 if not isinstance(value, list):
                     value = [value]
                 self.users[dn][key] = value
-        return ldap.RES_MODIFY, ''
+            return ldap.RES_ADD, ''
 
-    StateConnector.modify_s = _modify
+        def modify_s(self, dn, user):
+            if dn in self.users:
+                for type_, key, value in user:
+                    if not isinstance(value, list):
+                        value = [value]
+                    self.users[dn][key] = value
+            return ldap.RES_MODIFY, ''
 
-    def _delete(self, dn):
-        if dn in self.users:
-            del self.users[dn]
-        return ldap.RES_DELETE, ''
+        def delete_s(self, dn):
+            if dn in self.users:
+                del self.users[dn]
+            return ldap.RES_DELETE, ''
 
-    StateConnector.delete_s = _delete
+    from contextlib import contextmanager
+
+    @contextmanager
+    def _conn(self, bind=None, password=None):
+        yield MemoryStateConnector()
+
+    LDAPAuth._conn = _conn
 
 
 class TestLDAPSQLAuth(unittest.TestCase):
@@ -133,8 +136,7 @@ class TestLDAPSQLAuth(unittest.TestCase):
         #self.assertEquals(auth_uid, None)
         #auth_uid = auth.authenticate_user('tarek', 'xxxx')
         #self.assertEquals(auth_uid, ui)
-
-        auth.delete_user(uid)
+        auth.delete_user(uid, 'xxxx')
         auth_uid = auth.authenticate_user('tarek', 'xxxx')
         self.assertEquals(auth_uid, None)
 
@@ -204,7 +206,7 @@ class TestLDAPSQLAuth(unittest.TestCase):
                 'mail-verified': key,
                 'objectClass': ['dataStore', 'inetOrgPerson']}
 
-        user = addModlist(user)
+        user = user.items()
         dn = auth._get_dn(user_name)
 
         with auth._conn(auth.admin_user, auth.admin_password) as conn:

@@ -40,8 +40,6 @@ import random
 import datetime
 
 import ldap
-from ldap.modlist import addModlist
-
 try:
     from memcache import Client
 except ImportError:
@@ -206,7 +204,7 @@ class LDAPAuth(object):
                 'mail-verified': key,
                 'objectClass': ['dataStore', 'inetOrgPerson']}
 
-        user = addModlist(user)
+        user = user.items()
         dn = self._get_dn(user_name)
 
         with self._conn(self.admin_user, self.admin_password) as conn:

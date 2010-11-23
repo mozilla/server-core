@@ -139,7 +139,7 @@ class SyncServerApp(object):
         if request.method in ('HEAD',):
             raise HTTPBadRequest('"%s" not supported' % request.method)
 
-        request.server_time = float('%.2f' % time.time())
+        request.server_time = round(time.time(), 2)
 
         # gets request-specific config
         request.config = self._host_specific(request, self.config)
@@ -147,7 +147,8 @@ class SyncServerApp(object):
         # pre-hook
         before_headers = self._before_call(request)
 
-        # removing the trailing slash
+        # XXX
+        # removing the trailing slash - ambiguity on client side
         url = request.path_info.rstrip('/')
         if url != '':
             request.environ['PATH_INFO'] = request.path_info = url
