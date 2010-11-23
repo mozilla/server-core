@@ -34,13 +34,13 @@
 #
 # ***** END LICENSE BLOCK *****
 import unittest
-from synccore.plugin import Plugin
+from synccore.pluginreg import PluginRegistry
 
 
 class TestPlugin(unittest.TestCase):
 
     def test_get(self):
-        self.assertRaises(KeyError, Plugin.get, 'xxx')
+        self.assertRaises(KeyError, PluginRegistry.get, 'xxx')
 
         class Buggy(object):
 
@@ -51,8 +51,8 @@ class TestPlugin(unittest.TestCase):
             def get_name(cls):
                 return 'buggy'
 
-        Plugin.register(Buggy)
-        self.assertRaises(TypeError, Plugin.get, 'buggy')
+        PluginRegistry.register(Buggy)
+        self.assertRaises(TypeError, PluginRegistry.get, 'buggy')
 
         class Cool(object):
 
@@ -60,8 +60,8 @@ class TestPlugin(unittest.TestCase):
             def get_name(cls):
                 return 'cool'
 
-        Plugin.register(Cool)
-        p = Plugin.get('cool')
+        PluginRegistry.register(Cool)
+        p = PluginRegistry.get('cool')
         self.assertTrue(isinstance(p, Cool))
 
 

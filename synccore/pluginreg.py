@@ -69,7 +69,7 @@ def _resolve_name(name):
     return ret
 
 
-class Plugin(object):
+class PluginRegistry(object):
     """Abstract Base Class for plugins."""
     __metaclass__ = abc.ABCMeta
     name = ''

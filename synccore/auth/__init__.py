@@ -36,7 +36,7 @@
 """ Authentication tool
 """
 import abc
-from synccore.plugin import Plugin
+from synccore.pluginreg import PluginRegistry
 
 
 class NodeAttributionError(Exception):
@@ -44,7 +44,7 @@ class NodeAttributionError(Exception):
     pass
 
 
-class WeaveAuth(Plugin):
+class WeaveAuth(PluginRegistry):
     """Abstract Base Class for the authentication APIs."""
     name = 'auth'
 
