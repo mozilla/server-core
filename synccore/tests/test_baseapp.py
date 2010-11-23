@@ -34,43 +34,67 @@
 #
 # ***** END LICENSE BLOCK *****
 import unittest
+import base64
+
 from synccore.baseapp import SyncServerApp
+from webob.exc import HTTPUnauthorized
+
+
+class _Request(object):
+    def __init__(self, method, path_info, host):
+        self.method = method
+        self.path_info = path_info
+        self.host = host
+        self.GET = {}
+        self.environ = {'PATH_INFO': path_info,
+                        'REQUEST_METHOD': method}
+
+class _Foo(object):
+    def __init__(self, app):
+        self.app = app
+
+    def index(self, request):
+        return str(request.config['one.two'])
+
+    def secret(self, request):
+        return 'here'
 
 
 class TestBaseApp(unittest.TestCase):
 
-    def test_host_config(self):
-
-        class Request(object):
-            def __init__(self, method, path_info, host):
-                self.method = method
-                self.path_info = path_info
-                self.host = host
-                self.environ = {'PATH_INFO': path_info,
-                                'REQUEST_METHOD': method}
-
-        class Foo(object):
-            def __init__(self, app):
-                self.app = app
-
-            def index(self, request):
-                return str(request.config['one.two'])
-
-        urls = [('POST', '/', 'foo', 'index', False)]
-        controllers = {'foo': Foo}
+    def setUp(self):
+        urls = [('POST', '/', 'foo', 'index', False),
+                ('GET', '/secret', 'foo', 'secret', True)]
+        controllers = {'foo': _Foo}
         config = {'host:here.one.two': 1,
                   'one.two': 2,
                   'auth.backend': 'dummy'}
+        self.app = SyncServerApp(urls, controllers, config)
 
-        app = SyncServerApp(urls, controllers, config)
-
-        request = Request('POST', '/', 'localhost')
-        res = app(request)
+    def test_host_config(self):
+        request = _Request('POST', '/', 'localhost')
+        res = self.app(request)
         self.assertEqual(res.body, '2')
 
-        request = Request('POST', '/', 'here')
-        res = app(request)
+        request = _Request('POST', '/', 'here')
+        res = self.app(request)
         self.assertEqual(res.body, '1')
+
+    def test_auth(self):
+        request = _Request('GET', '/secret', 'localhost')
+
+        try:
+            self.app(request)
+        except HTTPUnauthorized, error:
+            self.assertEqual(error.headers['WWW-Authenticate'],
+                             'Basic realm="Sync"')
+        else:
+            raise AssertionError('Excepted a failure here')
+
+        auth = 'Basic %s' % base64.b64encode('tarek:tarek')
+        request.environ['HTTP_AUTHORIZATION'] = auth
+        res = self.app(request)
+        self.assertEqual(res.body, 'here')
 
 
 def test_suite():
