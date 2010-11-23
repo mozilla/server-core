@@ -104,7 +104,7 @@ def authenticate_user(request, authtool, config, username=None):
         # let's try an authentication
         user_id = authtool.authenticate_user(user_name, password)
         if user_id is None:
-            log_failure('Authentication Failed', 5, request)
+            log_failure('Authentication Failed', 5, environ, config)
             raise HTTPUnauthorized()
 
         # we're all clear ! setting up REMOTE_USER and user_id
