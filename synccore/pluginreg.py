@@ -72,12 +72,14 @@ def _resolve_name(name):
 class PluginRegistry(object):
     """Abstract Base Class for plugins."""
     __metaclass__ = abc.ABCMeta
-    name = ''
+
+    # Name for the family of plugins, defined at the class-level
+    plugin_type = ''
 
     @classmethod
     def get_from_config(cls, config):
         """Get a plugin from a config file."""
-        params = filter_params(cls.name, config)
+        params = filter_params(cls.plugin_type, config)
         backend_name = params['backend']
 
         # trying to load a direct backend name

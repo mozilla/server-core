@@ -46,7 +46,7 @@ class NodeAttributionError(Exception):
 
 class WeaveAuth(PluginRegistry):
     """Abstract Base Class for the authentication APIs."""
-    name = 'auth'
+    plugin_type = 'auth'
 
     @abc.abstractmethod
     def get_name(self):
