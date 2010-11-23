@@ -79,9 +79,20 @@ class TestUtil(unittest.TestCase):
 
         # authenticated by auth
         req = Request('/1.0/tarek/info/collections',
-                {'Authorization': token})
+                {'HTTP_AUTHORIZATION': token})
         res = authenticate_user(req, AuthTool(), {})
         self.assertEquals(res, 1)
+
+        # weird tokens should not break the function
+        bad_token1 = 'Basic ' + encodestring('tarektarek')
+        bad_token2 = 'Basic' + encodestring('tarek:tarek')
+        req = Request('/1.0/tarek/info/collections',
+                {'HTTP_AUTHORIZATION': bad_token1})
+
+        self.assertRaises(HTTPUnauthorized, authenticate_user, req, AuthTool(), {})
+        req = Request('/1.0/tarek/info/collections',
+                {'HTTP_AUTHORIZATION': bad_token2})
+        self.assertRaises(HTTPUnauthorized, authenticate_user, req, AuthTool(), {})
 
     def test_convert_config(self):
         config = {'one': '1', 'two': 'bla', 'three': 'false'}

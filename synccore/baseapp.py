@@ -164,7 +164,8 @@ class SyncServerApp(object):
             user_id = authenticate_user(request, self.authtool,
                                         self.config, match.get('username'))
             if user_id is None:
-                headers = [('WWW-Authenticate', 'Basic realm="Sync"')]
+                headers = [('WWW-Authenticate', 'Basic realm="Sync"'),
+                           ('Content-Type', 'text/plain')]
                 raise HTTPUnauthorized(headerlist=headers)
 
             match['user_id'] = user_id

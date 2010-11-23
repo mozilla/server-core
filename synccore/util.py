@@ -60,9 +60,7 @@ from webob import Response
 from services.cef import log_failure
 from services.config import Config, convert
 
-# various authorization header names, depending on the setup
-_AUTH_HEADERS = ('Authorization', 'AUTHORIZATION', 'HTTP_AUTHORIZATION',
-                 'REDIRECT_HTTP_AUTHORIZATION')
+
 _RE_CODE = re.compile('[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}')
 
 
@@ -78,45 +76,48 @@ def authenticate_user(request, authtool, config, username=None):
     It returns the user id from the database, if the password is the right
     one.
     """
-    # authenticating, if REMOTE_USER is not present in the environ
-    if 'REMOTE_USER' not in request.environ:
-        auth = None
-        for auth_header in _AUTH_HEADERS:
-            if auth_header in request.environ:
-                auth = request.environ[auth_header]
-                break
+    environ = request.environ
 
-        if auth is not None:
-            # for now, only supporting basic authentication
-            # let's decipher the base64 encoded value
-            if not auth.startswith('Basic '):
-                raise HTTPUnauthorized('Invalid token')
+    if 'REMOTE_USER' in environ:
+        # already authenticated
+        return environ['REMOTE_USER']
 
-            auth = auth.split('Basic ')[-1].strip()
-            try:
-                user_name, password = base64.decodestring(auth).split(':')
-            except binascii.Error:
-                raise HTTPUnauthorized('Invalid token')
+    auth = environ.get('HTTP_AUTHORIZATION')
+    if auth is not None:
+        # for now, only supporting basic authentication
+        # let's decipher the base64 encoded value
+        if not auth.startswith('Basic '):
+            raise HTTPUnauthorized('Invalid token')
 
-            # let's reject the call if the url is not owned by the user
-            if (username is not None and user_name != username):
-                log_failure('Username Does Not Match URL', 7, request.environ,
-                            config)
-                raise HTTPUnauthorized()
+        auth = auth[len('Basic '):].strip()
+        try:
+            user_name, password = base64.decodestring(auth).split(':')
+        except (binascii.Error, ValueError):
+            raise HTTPUnauthorized('Invalid token')
 
-            # let's try an authentication
-            user_id = authtool.authenticate_user(user_name, password)
-            if user_id is None:
-                log_failure('Authentication Failed', 5, request)
-                raise HTTPUnauthorized()
+        # let's reject the call if the url is not owned by the user
+        if (username is not None and user_name != username):
+            log_failure('Username Does Not Match URL', 7, environ,
+                        config)
+            raise HTTPUnauthorized()
 
-            # we're all clear ! setting up REMOTE_USER and user_id
-            request.environ['REMOTE_USER'] = user_name
+        # let's try an authentication
+        user_id = authtool.authenticate_user(user_name, password)
+        if user_id is None:
+            log_failure('Authentication Failed', 5, request)
+            raise HTTPUnauthorized()
 
-            # we also want to keep the password in clear text for reuse
-            # XXX See what's the best place to store the password
-            request.environ['USER_PASSWORD'] = password
-            return user_id
+        # we're all clear ! setting up REMOTE_USER and user_id
+        environ['REMOTE_USER'] = user_name
+
+        # we also want to keep the password in clear text to reuse it
+        # This is done for instance when the ldap auth backend wants to
+        # delete a user. The user password is required.
+        #
+        # XXX See what's the best place to store the password for security
+        # XXX See if we can do this differently
+        environ['USER_PASSWORD'] = password
+        return user_id
 
 
 def text_response(data):
