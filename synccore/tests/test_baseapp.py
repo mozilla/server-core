@@ -49,6 +49,7 @@ class _Request(object):
         self.environ = {'PATH_INFO': path_info,
                         'REQUEST_METHOD': method}
 
+
 class _Foo(object):
     def __init__(self, app):
         self.app = app

@@ -44,6 +44,7 @@ except ImportError:
 
 if LDAP:
     # memory ldap connector for the tests
+
     class MemoryStateConnector(StateConnector):
 
         users = {'uid=tarek,ou=users,dc=mozilla':
@@ -185,9 +186,8 @@ class TestLDAPSQLAuth(unittest.TestCase):
         auth_uid = auth.authenticate_user('tarek', 'tarek')
         self.assertEquals(auth_uid, uid)
 
-
     def _create_user(self, auth, user_name, password, email):
-        from synccore.auth.ldapsql import *
+        from synccore.auth.ldapsql import *   # NOQA
         user_name = str(user_name)
         user_id = auth._get_next_user_id()
         password_hash = ssha(password)
@@ -216,7 +216,6 @@ class TestLDAPSQLAuth(unittest.TestCase):
                 raise BackendTimeoutError()
 
         return res == ldap.RES_ADD
-
 
     def test_no_disabled_check(self):
         if not LDAP:

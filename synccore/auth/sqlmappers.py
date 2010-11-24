@@ -58,7 +58,7 @@ tables.append(collections)
 
 class Users(_Base):
     __tablename__ = 'users'
-    __table_args__  = (UniqueConstraint('username', 'password_hash'), {})
+    __table_args__ = (UniqueConstraint('username', 'password_hash'), {})
 
     id = Column(Integer, primary_key=True, nullable=False)
     username = Column(String(32))

@@ -85,7 +85,7 @@ class TestWeaveLogger(unittest.TestCase):
 
     def test_cef_syslog(self):
         try:
-            import syslog
+            import syslog   # NOQA
         except ImportError:
             return
 

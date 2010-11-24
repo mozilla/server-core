@@ -89,10 +89,12 @@ class TestUtil(unittest.TestCase):
         req = Request('/1.0/tarek/info/collections',
                 {'HTTP_AUTHORIZATION': bad_token1})
 
-        self.assertRaises(HTTPUnauthorized, authenticate_user, req, AuthTool(), {})
+        self.assertRaises(HTTPUnauthorized, authenticate_user, req,
+                          AuthTool(), {})
         req = Request('/1.0/tarek/info/collections',
                 {'HTTP_AUTHORIZATION': bad_token2})
-        self.assertRaises(HTTPUnauthorized, authenticate_user, req, AuthTool(), {})
+        self.assertRaises(HTTPUnauthorized, authenticate_user, req,
+                          AuthTool(), {})
 
     def test_convert_config(self):
         config = {'one': '1', 'two': 'bla', 'three': 'false'}
