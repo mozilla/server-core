@@ -120,17 +120,22 @@ def authenticate_user(request, authtool, config, username=None):
         return user_id
 
 
-def text_response(data):
+def text_response(data, **kw):
     """Returns Response containing a plain text"""
-    return Response(str(data), content_type='text/plain')
+    return Response(str(data), content_type='text/plain', **kw)
 
 
-def json_response(data):
+def json_response(data, **kw):
     """Returns Response containing a json string"""
-    return Response(json.dumps(data), content_type='application/json')
+    return Response(json.dumps(data), content_type='application/json', **kw)
 
 
-def newlines_response(lines):
+def html_response(data, **kw):
+    """Returns Response containing a plain text"""
+    return Response(str(data), content_type='text/html', **kw)
+
+
+def newlines_response(lines, **kw):
     """Returns a Response object containing a newlines output."""
 
     def _convert(line):
@@ -138,10 +143,10 @@ def newlines_response(lines):
         return '%s\n' % line
 
     data = [_convert(line) for line in lines]
-    return Response(''.join(data), content_type='application/newlines')
+    return Response(''.join(data), content_type='application/newlines', **kw)
 
 
-def whoisi_response(lines):
+def whoisi_response(lines, **kw):
     """Returns a Response object containing a whoisi output."""
 
     def _convert(line):
@@ -150,22 +155,22 @@ def whoisi_response(lines):
         return '%s%s' % (size, line)
 
     data = [_convert(line) for line in lines]
-    return Response(''.join(data), content_type='application/whoisi')
+    return Response(''.join(data), content_type='application/whoisi', **kw)
 
 
-def convert_response(request, lines):
+def convert_response(request, lines, **kw):
     """Returns the response in the appropriate format, depending on the accept
     request."""
     accept = request.headers.get('Accept', 'application/json')
     accepts = accept.split(';')[0].split(',')
 
     if 'application/newlines' in accepts:
-        return newlines_response(lines)
+        return newlines_response(lines, **kw)
     elif 'application/whoisi' in accepts:
-        return whoisi_response(lines)
+        return whoisi_response(lines, **kw)
 
     # default response format is json
-    return json_response(lines)
+    return json_response(lines, **kw)
 
 
 def time2bigint(value):
