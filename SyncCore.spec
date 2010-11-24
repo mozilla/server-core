@@ -1,4 +1,4 @@
-%define name python26-syncore
+%define name python26-synccore
 %define pythonname SyncCore
 %define version 0.1
 %define unmangled_version 0.1
