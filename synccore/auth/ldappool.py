@@ -89,15 +89,12 @@ class ConnectionPool(object):
         if passwd is None:
             passwd = self.passwd
 
-        self._pool_lock.acquire()
-        try:
+        with self._pool_lock:
             for conn in self._pool:
                 if not conn.active and (conn.who is None or conn.who == bind):
                     # we found a connector for this bind, that can be used
                     conn.active = True
                     return conn
-        finally:
-            self._pool_lock.release()
 
         # the pool is full
         if len(self._pool) >= self.size:
@@ -106,8 +103,7 @@ class ConnectionPool(object):
         # we need to create a connector
         conn = StateConnector(self.uri, retry_max=self.retry_max,
                               retry_delay=self.retry_delay)
-
-        conn.network_timeout = conn.timeout = self.timeout
+        conn.timeout = self.timeout
 
         if self.use_tls:
             conn.start_tls_s()
@@ -119,27 +115,24 @@ class ConnectionPool(object):
                 raise BackendTimeoutError()
 
         conn.active = True
-        self._pool_lock.acquire()
-        try:
+        with self._pool_lock:
             self._pool.append(conn)
-        finally:
-            self._pool_lock.release()
+
         return conn
 
     def _release_connection(self, connection):
-        if not connection.connected:
-            # unconnected connector, let's drop it
-            self._pool.remove(connection)
-        else:
-            # can be reused - let's mark is as not active
-            connection.active = False
+        with self._pool_lock:
+            if not connection.connected:
+                # unconnected connector, let's drop it
+                self._pool.remove(connection)
+            else:
+                # can be reused - let's mark is as not active
+                connection.active = False
 
     @contextmanager
     def connection(self, bind=None, passwd=None):
-        conn = None
+        conn = self._get_connection(bind, passwd)
         try:
-            conn = self._get_connection(bind, passwd)
             yield conn
         finally:
-            if conn is not None:
-                self._release_connection(conn)
+            self._release_connection(conn)

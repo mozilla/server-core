@@ -35,10 +35,9 @@
 # ***** END LICENSE BLOCK *****
 import unittest
 import threading
-
 try:
     import ldap
-    from synccore.auth.ldapsql import (ConnectionPool, StateConnector,
+    from synccore.auth.ldappool import (ConnectionPool, StateConnector,
                                        MaxConnectionReachedError)
     LDAP = True
 except ImportError:
