@@ -61,6 +61,7 @@ from services.cef import log_failure
 from services.config import Config, convert
 
 
+random.seed()    # picks some /dev/urandom data to initialize the generator
 _RE_CODE = re.compile('[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}')
 
 
@@ -193,11 +194,16 @@ def round_time(value):
     return round(value, 2)
 
 
+def _gensalt():
+    """Generates a salt"""
+    return ''.join([random.choice(string.letters + string.digits)
+                    for i in range(32)])
+
+
 def ssha(password, salt=None):
     """Returns a Salted-SHA password"""
     if salt is None:
-        salt = ''.join([random.choice(string.letters + string.digits)
-                        for i in range(32)])
+        salt = _gensalt()
     ssha = base64.encodestring(sha1(password + salt).digest()
                                + salt).strip()
     return "{SSHA}%s" % ssha
@@ -206,8 +212,7 @@ def ssha(password, salt=None):
 def ssha256(password, salt=None):
     """Returns a Salted-SHA256 password"""
     if salt is None:
-        salt = ''.join([random.choice(string.letters + string.digits)
-                        for i in range(32)])
+        salt = _gensalt()
     ssha = base64.encodestring(sha256(password + salt).digest()
                                + salt).strip()
     return "{SSHA-256}%s" % ssha
