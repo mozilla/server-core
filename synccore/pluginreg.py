@@ -94,7 +94,7 @@ class PluginRegistry(object):
             try:
                 backend = _resolve_name(backend_name)
             except ImportError, e:
-                raise KeyError('Cannot load "%r" %s' % (backend_name, str(e)))
+                raise KeyError('Cannot load %r %s' % (backend_name, str(e)))
 
             # let's register it on-the-fly
             cls.register(backend)
