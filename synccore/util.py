@@ -161,12 +161,13 @@ def whoisi_response(lines, **kw):
 def convert_response(request, lines, **kw):
     """Returns the response in the appropriate format, depending on the accept
     request."""
-    accept = request.headers.get('Accept', 'application/json')
-    accepts = accept.split(';')[0].split(',')
+    content_type = request.accept.first_match(('application/json',
+                                               'application/newlines',
+                                               'application/whoisi'))
 
-    if 'application/newlines' in accepts:
+    if content_type == 'application/newlines':
         return newlines_response(lines, **kw)
-    elif 'application/whoisi' in accepts:
+    elif content_type == 'application/whoisi':
         return whoisi_response(lines, **kw)
 
     # default response format is json
