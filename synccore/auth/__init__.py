@@ -182,3 +182,32 @@ class WeaveAuth(PluginRegistry):
             The node URL. None if the auth does not support node location.
             None is returned on single-boxe setups.
         """
+
+
+def get_auth(config):
+    """Returns an auth backend instance, given a config.
+
+    "config" is a mapping, containing the configuration.
+    All keys that starts with "auth." are used in the function.
+
+
+    - "auth.backend" must be present and contain a fully qualified name of a
+      backend class to be used, or the name of any backend synccore provides.
+      "sql", "ldap" or "dummy".
+
+    - other keys that starts with "auth." are passed to the backend
+      constructor -- with the prefix stripped.
+    """
+    # pre-loading auth plugins synccore provides to ease configuration
+    from synccore.auth.sql import SQLAuth
+    WeaveAuth.register(SQLAuth)
+    try:
+        from synccore.auth.ldapsql import LDAPAuth
+        WeaveAuth.register(LDAPAuth)
+    except ImportError:
+        pass
+
+    from synccore.auth.dummy import DummyAuth
+    WeaveAuth.register(DummyAuth)
+
+    return WeaveAuth.get_from_config(config)

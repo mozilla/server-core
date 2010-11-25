@@ -48,20 +48,8 @@ from webob.exc import HTTPNotFound, HTTPUnauthorized, HTTPBadRequest
 from webob import Response
 
 from synccore.util import authenticate_user, convert_config
-from synccore.auth import WeaveAuth
+from synccore.auth import get_auth
 
-# pre-loading auth plugins the project provides to ease configuration
-from synccore.auth.sql import SQLAuth
-WeaveAuth.register(SQLAuth)
-
-try:
-    from synccore.auth.ldapsql import LDAPAuth
-    WeaveAuth.register(LDAPAuth)
-except ImportError:
-    pass
-
-from synccore.auth.dummy import DummyAuth
-WeaveAuth.register(DummyAuth)
 
 # URL dispatching happens here
 # methods / match / controller / controller method / auth ?
@@ -85,7 +73,7 @@ class SyncServerApp(object):
             self.config = {}
 
         # loading the authentication backend
-        self.authtool = WeaveAuth.get_from_config(self.config)
+        self.authtool = get_auth(self.config)
 
         # loading and connecting controllers
         self.controllers = dict([(name, klass(self)) for name, klass in
