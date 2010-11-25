@@ -193,7 +193,7 @@ class SyncServerApp(object):
         return getattr(controller, method)
 
 
-def set_app(urls, controllers, klass=SyncServerApp):
+def set_app(urls, controllers, klass=SyncServerApp, wrapper=None):
     """make_app factory."""
     def make_app(global_conf, **app_conf):
         """Returns a Sync Server Application."""
@@ -218,5 +218,7 @@ def set_app(urls, controllers, klass=SyncServerApp):
             app = ErrorMiddleware(app, debug=True,
                                 show_exceptions_in_wsgi_errors=True)
 
+        if wrapper is not None:
+            app = wrapper(app)
         return app
     return make_app
