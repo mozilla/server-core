@@ -123,16 +123,13 @@ def authenticate_user(request, authtool, config, username=None):
             log_failure('Authentication Failed', 5, environ, config)
             raise HTTPUnauthorized()
 
-        # we're all clear ! setting up REMOTE_USER and user_id
-        environ['REMOTE_USER'] = user_name
+        # we're all clear ! setting up REMOTE_USER
+        request.remote_user = environ['REMOTE_USER'] = user_name
 
         # we also want to keep the password in clear text to reuse it
-        # This is done for instance when the ldap auth backend wants to
-        # delete a user. The user password is required.
-        #
-        # XXX See what's the best place to store the password for security
-        # XXX See if we can do this differently
-        environ['USER_PASSWORD'] = password
+        # and remove it from the environ
+        request.user_password = password
+        del environ['HTTP_AUTHORIZATION']
         return user_id
 
 
