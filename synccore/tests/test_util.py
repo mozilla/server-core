@@ -45,7 +45,8 @@ from synccore.util import (authenticate_user, convert_config, bigint2time,
                            time2bigint, valid_email, batch, raise_503,
                            validate_password, ssha, ssha256,
                            valid_password, json_response,
-                           newlines_response, whoisi_response, text_response)
+                           newlines_response, whoisi_response, text_response,
+                           extract_username)
 
 
 class Request(object):
@@ -187,3 +188,8 @@ class TestUtil(unittest.TestCase):
         resp = json_response(data)
         self.assertEquals(resp.body, '{"some": "data"}')
         self.assertEquals(resp.content_type, 'application/json')
+
+    def test_extract_username(self):
+        self.assertEquals(extract_username('username'), 'username')
+        self.assertEquals(extract_username('test@test.com'),
+                          'u2wqblarhim5su7pxemcbwdyryrghmuk')

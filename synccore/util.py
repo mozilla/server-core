@@ -450,3 +450,15 @@ class HTTPJsonBadRequest(HTTPBadRequest):
             headerlist=headerlist,
             content_type='application/json')
         return resp(environ, start_response)
+
+
+def extract_username(username):
+    """Extracts the user name.
+
+    Takes the username and if it is an email address, munges it down
+    to the corresponding 32-character username
+    """
+    if '@' not in username:
+        return username
+    hashed = sha1(username.lower()).digest()
+    return base64.b32encode(hashed).lower()
