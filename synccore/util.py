@@ -61,8 +61,23 @@ from services.cef import log_failure
 from services.config import Config, convert
 
 
-random.seed()    # picks some /dev/urandom data to initialize the generator
+random.seed()
 _RE_CODE = re.compile('[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}')
+
+
+def randchar(chars=string.digits + string.letters):
+    """Generates a random char using urandom.
+
+    If the system does not support it, the function fallbacks on random.choice
+
+    See Haypo's explanation on the used formula to pick a char:
+    http://bitbucket.org/haypo/hasard/src/tip/doc/common_errors.rst
+    """
+    try:
+        pos = int(float(ord(os.urandom(1))) * 256. / 255.)
+        return chars[pos % len(chars)]
+    except NotImplementedError:
+        return random.choice(chars)
 
 
 def authenticate_user(request, authtool, config, username=None):
@@ -196,8 +211,7 @@ def round_time(value):
 
 def _gensalt():
     """Generates a salt"""
-    return ''.join([random.choice(string.letters + string.digits)
-                    for i in range(32)])
+    return ''.join([randchar() for i in range(32)])
 
 
 def ssha(password, salt=None):
@@ -413,7 +427,7 @@ def generate_reset_code():
     chars = string.ascii_uppercase + string.digits
 
     def _4chars():
-        return ''.join([random.choice(chars) for i in range(4)])
+        return ''.join([randchar(chars) for i in range(4)])
 
     code = '-'.join([_4chars() for i in range(4)])
     expiration = datetime.datetime.now() + datetime.timedelta(hours=6)
