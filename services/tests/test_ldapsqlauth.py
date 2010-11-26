@@ -36,8 +36,8 @@
 import unittest
 try:
     import ldap
-    from synccore.auth.ldappool import StateConnector
-    from synccore.auth.ldapsql import LDAPAuth
+    from services.auth.ldappool import StateConnector
+    from services.auth.ldapsql import LDAPAuth
     LDAP = True
 except ImportError:
     LDAP = False
@@ -187,7 +187,7 @@ class TestLDAPSQLAuth(unittest.TestCase):
         self.assertEquals(auth_uid, uid)
 
     def _create_user(self, auth, user_name, password, email):
-        from synccore.auth.ldapsql import *   # NOQA
+        from services.auth.ldapsql import *   # NOQA
         user_name = str(user_name)
         user_id = auth._get_next_user_id()
         password_hash = ssha(password)

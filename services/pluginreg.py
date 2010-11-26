@@ -37,7 +37,7 @@
 Base plugin class with registration mechanism and configuration reading.
 """
 import abc
-from synccore.util import filter_params
+from services.util import filter_params
 
 
 def _resolve_name(name):

@@ -37,7 +37,7 @@ import unittest
 import threading
 try:
     import ldap
-    from synccore.auth.ldappool import (ConnectionPool, StateConnector,
+    from services.auth.ldappool import (ConnectionPool, StateConnector,
                                        MaxConnectionReachedError)
     LDAP = True
 except ImportError:

@@ -47,8 +47,8 @@ from webob.dec import wsgify
 from webob.exc import HTTPNotFound, HTTPUnauthorized, HTTPBadRequest
 from webob import Response
 
-from synccore.util import authenticate_user, convert_config
-from synccore.auth import get_auth
+from services.util import authenticate_user, convert_config
+from services.auth import get_auth
 
 
 # URL dispatching happens here

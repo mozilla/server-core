@@ -43,10 +43,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.interfaces import PoolListener
 from sqlalchemy.sql import bindparam, select, insert, update, delete
 
-from synccore.util import (validate_password, ssha256, check_reset_code,
+from services.util import (validate_password, ssha256, check_reset_code,
                              generate_reset_code)
 # sharing the same table than the sql storage
-from synccore.auth.sqlmappers import users
+from services.auth.sqlmappers import users
 
 _SQLURI = 'mysql://sync:sync@localhost/sync'
 

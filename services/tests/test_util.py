@@ -41,7 +41,7 @@ import os
 
 from webob.exc import HTTPServiceUnavailable, HTTPUnauthorized
 
-from synccore.util import (authenticate_user, convert_config, bigint2time,
+from services.util import (authenticate_user, convert_config, bigint2time,
                            time2bigint, valid_email, batch, raise_503,
                            validate_password, ssha, ssha256,
                            valid_password, json_response,

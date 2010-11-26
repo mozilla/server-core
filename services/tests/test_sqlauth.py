@@ -38,10 +38,10 @@ import datetime
 
 from sqlalchemy.sql import text
 
-from synccore.tests.support import initenv
-from synccore.auth.sql import SQLAuth
-from synccore.auth import WeaveAuth
-from synccore.util import ssha
+from services.tests.support import initenv
+from services.auth.sql import SQLAuth
+from services.auth import WeaveAuth
+from services.util import ssha
 
 WeaveAuth.register(SQLAuth)
 

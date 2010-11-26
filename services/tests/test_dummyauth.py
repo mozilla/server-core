@@ -33,6 +33,31 @@
 # the terms of any one of the MPL, the GPL or the LGPL.
 #
 # ***** END LICENSE BLOCK *****
-import logging
+import unittest
 
-logger = logging.getLogger('weaveserver')
+from services.auth.dummy import DummyAuth
+from services.auth import WeaveAuth
+
+WeaveAuth.register(DummyAuth)
+
+
+class TestDummyAuth(unittest.TestCase):
+
+    def setUp(self):
+        self.auth = WeaveAuth.get('dummy')
+
+    def test_authenticate_user(self):
+        tarek_id = self.auth.authenticate_user('tarek', 'tarek')
+        self.assertNotEquals(self.auth.authenticate_user('tarek2', 'tarek'),
+                             tarek_id)
+        self.assertEquals(self.auth.authenticate_user('tarek', 'tarek'),
+                          tarek_id)
+
+
+def test_suite():
+    suite = unittest.TestSuite()
+    suite.addTest(unittest.makeSuite(TestDummyAuth))
+    return suite
+
+if __name__ == "__main__":
+    unittest.main(defaultTest="test_suite")

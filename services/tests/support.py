@@ -33,42 +33,46 @@
 # the terms of any one of the MPL, the GPL or the LGPL.
 #
 # ***** END LICENSE BLOCK *****
-import unittest
-from synccore.pluginreg import PluginRegistry
+from ConfigParser import RawConfigParser
+import os
+from logging.config import fileConfig
+
+from services.auth import WeaveAuth
+from services.util import convert_config
+import services
+
+_WEAVEDIR = os.path.dirname(services.__file__)
+_TOPDIR = os.path.split(_WEAVEDIR)[0]
+
+while True:
+    if 'WEAVE_TESTFILE' in os.environ:
+        _INI_FILE = os.path.join(_TOPDIR, 'tests_%s.ini' % \
+                                 os.environ['WEAVE_TESTFILE'])
+    else:
+        _INI_FILE = os.path.join(_TOPDIR, 'tests.ini')
+
+    if os.path.exists(_INI_FILE):
+        break
+
+    _TOPDIR = os.path.split(_TOPDIR)[0]
 
 
-class TestPlugin(unittest.TestCase):
+def initenv():
+    """Reads the config file and instanciates an auth and a storage.
 
-    def test_get(self):
-        self.assertRaises(KeyError, PluginRegistry.get, 'xxx')
+    The WEAVE_TESTFILE=name environment variable can be used to point
+    a particular tests_name.ini file.
+    """
+    cfg = RawConfigParser()
+    cfg.read(_INI_FILE)
 
-        class Buggy(object):
+    # loading loggers
+    if cfg.has_section('loggers'):
+        fileConfig(_INI_FILE)
 
-            def __init__(self):
-                raise IOError('boom')
-
-            @classmethod
-            def get_name(cls):
-                return 'buggy'
-
-        PluginRegistry.register(Buggy)
-        self.assertRaises(TypeError, PluginRegistry.get, 'buggy')
-
-        class Cool(object):
-
-            @classmethod
-            def get_name(cls):
-                return 'cool'
-
-        PluginRegistry.register(Cool)
-        p = PluginRegistry.get('cool')
-        self.assertTrue(isinstance(p, Cool))
-
-
-def test_suite():
-    suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(TestPlugin))
-    return suite
-
-if __name__ == "__main__":
-    unittest.main(defaultTest="test_suite")
+    here = {'here': os.path.dirname(os.path.realpath(_INI_FILE))}
+    config = dict([(key, value % here)for key, value in
+                   cfg.items('DEFAULT') + cfg.items('app:main')])
+    config = convert_config(config)
+    auth = WeaveAuth.get_from_config(config)
+    return _TOPDIR, config, auth

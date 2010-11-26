@@ -36,7 +36,7 @@
 import unittest
 import base64
 
-from synccore.baseapp import SyncServerApp
+from services.baseapp import SyncServerApp
 from webob.exc import HTTPUnauthorized
 
 

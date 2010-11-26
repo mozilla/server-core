@@ -41,7 +41,7 @@ from threading import RLock
 from ldap.ldapobject import ReconnectLDAPObject
 import ldap
 
-from synccore.util import BackendTimeoutError
+from services.util import BackendTimeoutError
 
 
 class MaxConnectionReachedError(Exception):

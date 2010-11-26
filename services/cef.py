@@ -152,7 +152,7 @@ def log_failure(message, severity, environ, config, signature=AUTH_FAILURE,
     """
     # XXX might want to remove the request dependency here
     # so this module is standalone
-    from synccore.util import filter_params
+    from services.util import filter_params
 
     signature = _convert(signature)
     name = _convert(message)

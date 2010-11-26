@@ -36,7 +36,7 @@
 """ Authentication tool
 """
 import abc
-from synccore.pluginreg import PluginRegistry
+from services.pluginreg import PluginRegistry
 
 
 class NodeAttributionError(Exception):
@@ -192,22 +192,22 @@ def get_auth(config):
 
 
     - "auth.backend" must be present and contain a fully qualified name of a
-      backend class to be used, or the name of any backend synccore provides.
+      backend class to be used, or the name of any backend services provides.
       "sql", "ldap" or "dummy".
 
     - other keys that starts with "auth." are passed to the backend
       constructor -- with the prefix stripped.
     """
-    # pre-loading auth plugins synccore provides to ease configuration
-    from synccore.auth.sql import SQLAuth
+    # pre-loading auth plugins services provides to ease configuration
+    from services.auth.sql import SQLAuth
     WeaveAuth.register(SQLAuth)
     try:
-        from synccore.auth.ldapsql import LDAPAuth
+        from services.auth.ldapsql import LDAPAuth
         WeaveAuth.register(LDAPAuth)
     except ImportError:
         pass
 
-    from synccore.auth.dummy import DummyAuth
+    from services.auth.dummy import DummyAuth
     WeaveAuth.register(DummyAuth)
 
     return WeaveAuth.get_from_config(config)

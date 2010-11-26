@@ -33,3 +33,42 @@
 # the terms of any one of the MPL, the GPL or the LGPL.
 #
 # ***** END LICENSE BLOCK *****
+import unittest
+from services.pluginreg import PluginRegistry
+
+
+class TestPlugin(unittest.TestCase):
+
+    def test_get(self):
+        self.assertRaises(KeyError, PluginRegistry.get, 'xxx')
+
+        class Buggy(object):
+
+            def __init__(self):
+                raise IOError('boom')
+
+            @classmethod
+            def get_name(cls):
+                return 'buggy'
+
+        PluginRegistry.register(Buggy)
+        self.assertRaises(TypeError, PluginRegistry.get, 'buggy')
+
+        class Cool(object):
+
+            @classmethod
+            def get_name(cls):
+                return 'cool'
+
+        PluginRegistry.register(Cool)
+        p = PluginRegistry.get('cool')
+        self.assertTrue(isinstance(p, Cool))
+
+
+def test_suite():
+    suite = unittest.TestSuite()
+    suite.addTest(unittest.makeSuite(TestPlugin))
+    return suite
+
+if __name__ == "__main__":
+    unittest.main(defaultTest="test_suite")
