@@ -205,17 +205,19 @@ def round_time(value):
         value = float(value)
     return round(value, 2)
 
+_SALT_LEN = 8
+
 
 def _gensalt():
     """Generates a salt"""
-    return ''.join([randchar() for i in range(32)])
+    return ''.join([randchar() for i in range(_SALT_LEN)])
 
 
 def ssha(password, salt=None):
     """Returns a Salted-SHA password"""
     if salt is None:
         salt = _gensalt()
-    ssha = base64.encodestring(sha1(password + salt).digest()
+    ssha = base64.b64encode(sha1(password + salt).digest()
                                + salt).strip()
     return "{SSHA}%s" % ssha
 
@@ -224,7 +226,7 @@ def ssha256(password, salt=None):
     """Returns a Salted-SHA256 password"""
     if salt is None:
         salt = _gensalt()
-    ssha = base64.encodestring(sha256(password + salt).digest()
+    ssha = base64.b64encode(sha256(password + salt).digest()
                                + salt).strip()
     return "{SSHA-256}%s" % ssha
 
@@ -238,7 +240,7 @@ def validate_password(clear, hash):
         real_hash = hash.split('{SSHA}')[-1]
         hash_meth = ssha
 
-    salt = base64.decodestring(real_hash)[-32:]
+    salt = base64.decodestring(real_hash)[-_SALT_LEN:]
     password = hash_meth(clear, salt)
     return password == hash
 
