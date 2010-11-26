@@ -105,7 +105,7 @@ class SQLAuth(object):
         """Creates a user. Returns True on success."""
         password_hash = ssha256(password)
         query = insert(users).values(username=user_name, email=email,
-                                     password_hash=password_hash, status=0)
+                                     password_hash=password_hash, status=1)
         res = self._engine.execute(query)
         return res.rowcount == 1
 
@@ -118,7 +118,7 @@ class SQLAuth(object):
         if user is None:
             return None
 
-        if user.status == 1:  # user is disabled
+        if user.status != 1:  # user is disabled
             return None
 
         if validate_password(password, user.password_hash):

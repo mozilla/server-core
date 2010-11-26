@@ -56,7 +56,7 @@ class TestSQLAuth(unittest.TestCase):
         # lets add a user tarek/tarek
         password = ssha('tarek')
         query = text('insert into users (username, password_hash, status) '
-                     'values (:username, :password, 0)')
+                     'values (:username, :password, 1)')
         self.auth._engine.execute(query, username='tarek', password=password)
         self.user_id = self.auth._engine.execute('select id from users where'
                                             ' username="tarek"').fetchone().id
@@ -103,8 +103,8 @@ class TestSQLAuth(unittest.TestCase):
         if self.auth.get_name() != 'sql':
             # not supported yet
             return
-        # people with status '1' are disabled
-        self.auth._engine.execute('update users set status=1')
+        # people with status '0' are disabled
+        self.auth._engine.execute('update users set status=0')
         self.assertEquals(self.auth.authenticate_user('tarek', 'tarek'), None)
 
 
