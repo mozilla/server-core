@@ -41,19 +41,6 @@ from sqlalchemy import Integer, String, DateTime, Text, BigInteger
 
 _Base = declarative_base()
 tables = []
-MAX_TTL = 2100000000
-
-
-class Collections(_Base):
-    __tablename__ = 'collections'
-
-    # XXX add indexes
-    userid = Column(Integer(11), primary_key=True, nullable=False)
-    collectionid = Column(Integer(6), primary_key=True, nullable=False)
-    name = Column(String(32), nullable=False)
-
-collections = Collections.__table__
-tables.append(collections)
 
 
 class Users(_Base):
@@ -72,26 +59,3 @@ class Users(_Base):
 
 users = Users.__table__
 tables.append(users)
-
-
-class WBO(_Base):
-    __tablename__ = 'wbo'
-    __table_args__ = {'mysql_engine': 'InnoDB',
-                      'mysql_charset': 'latin1'}
-
-    id = Column(String(64), primary_key=True, autoincrement=False)
-    # XXX that's user id in fact
-    username = Column(Integer(11), primary_key=True, nullable=False)
-    collection = Column(Integer(6), primary_key=True, nullable=False,
-                        default=0)
-    parentid = Column(String(64))
-    predecessorid = Column(String(64))
-    sortindex = Column(Integer(11))
-    modified = Column(BigInteger(20))
-    payload = Column(Text)
-    payload_size = Column(Integer(11))
-    ttl = Column(Integer(11), default=MAX_TTL)
-
-
-wbo = WBO.__table__
-tables.append(wbo)
