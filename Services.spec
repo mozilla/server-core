@@ -1,5 +1,5 @@
 %define name python26-services
-%define pythonname SyncCore
+%define pythonname Services
 %define version 0.1
 %define unmangled_version 0.1
 %define unmangled_version 0.1
