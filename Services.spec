@@ -17,7 +17,7 @@ Prefix: %{_prefix}
 BuildArch: noarch
 Vendor: Tarek Ziade <tarek@mozilla.com>
 Requires: nginx memcached gunicorn openldap-devel mysql-devel python26 pylibmc python26-setuptools python26-webob python26-paste python26-pastedeploy python26-sqlalchemy python26-simplejson python26-routes python26-ldap python26-mysql-python
-
+Obsoletes: python26-synccore
 
 Url: https://hg.mozilla.org/services/server-core
 
