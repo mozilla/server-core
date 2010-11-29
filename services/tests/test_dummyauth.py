@@ -36,15 +36,15 @@
 import unittest
 
 from services.auth.dummy import DummyAuth
-from services.auth import WeaveAuth
+from services.auth import ServicesAuth
 
-WeaveAuth.register(DummyAuth)
+ServicesAuth.register(DummyAuth)
 
 
 class TestDummyAuth(unittest.TestCase):
 
     def setUp(self):
-        self.auth = WeaveAuth.get('dummy')
+        self.auth = ServicesAuth.get('dummy')
 
     def test_authenticate_user(self):
         tarek_id = self.auth.authenticate_user('tarek', 'tarek')

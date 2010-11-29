@@ -44,7 +44,7 @@ class NodeAttributionError(Exception):
     pass
 
 
-class WeaveAuth(PluginRegistry):
+class ServicesAuth(PluginRegistry):
     """Abstract Base Class for the authentication APIs."""
     plugin_type = 'auth'
 
@@ -200,14 +200,14 @@ def get_auth(config):
     """
     # pre-loading auth plugins services provides to ease configuration
     from services.auth.sql import SQLAuth
-    WeaveAuth.register(SQLAuth)
+    ServicesAuth.register(SQLAuth)
     try:
         from services.auth.ldapsql import LDAPAuth
-        WeaveAuth.register(LDAPAuth)
+        ServicesAuth.register(LDAPAuth)
     except ImportError:
         pass
 
     from services.auth.dummy import DummyAuth
-    WeaveAuth.register(DummyAuth)
+    ServicesAuth.register(DummyAuth)
 
-    return WeaveAuth.get_from_config(config)
+    return ServicesAuth.get_from_config(config)

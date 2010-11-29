@@ -37,7 +37,7 @@ from ConfigParser import RawConfigParser
 import os
 from logging.config import fileConfig
 
-from services.auth import WeaveAuth
+from services.auth import ServicesAuth
 from services.util import convert_config
 import services
 
@@ -74,5 +74,5 @@ def initenv():
     config = dict([(key, value % here)for key, value in
                    cfg.items('DEFAULT') + cfg.items('app:main')])
     config = convert_config(config)
-    auth = WeaveAuth.get_from_config(config)
+    auth = ServicesAuth.get_from_config(config)
     return _TOPDIR, config, auth

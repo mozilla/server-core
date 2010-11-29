@@ -40,10 +40,10 @@ from sqlalchemy.sql import text
 
 from services.tests.support import initenv
 from services.auth.sql import SQLAuth
-from services.auth import WeaveAuth
+from services.auth import ServicesAuth
 from services.util import ssha
 
-WeaveAuth.register(SQLAuth)
+ServicesAuth.register(SQLAuth)
 
 
 class TestSQLAuth(unittest.TestCase):
