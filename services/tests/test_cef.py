@@ -107,3 +107,28 @@ class TestWeaveLogger(unittest.TestCase):
             logs = '\n'.join(f.read().split('\n')[-10:])
 
         self.assertTrue('MySuperBrowser' in logs)
+
+    def test_cef_nohost(self):
+        try:
+            import syslog   # NOQA
+        except ImportError:
+            return
+
+        environ = {'REMOTE_ADDR': '127.0.0.1',
+                   'PATH_INFO': '/', 'REQUEST_METHOD': 'GET',
+                   'HTTP_USER_AGENT': 'MySuperBrowser2'}
+
+        config = {'cef.version': '0', 'cef.vendor': 'mozilla',
+                  'cef.device_version': '3', 'cef.product': 'weave',
+                  'cef': True, 'cef.file': 'syslog',
+                  'cef.syslog.priority': 'ERR',
+                  'cef.syslog.facility': 'AUTH',
+                  'cef.syslog.options': 'PID,CONS'}
+
+        log_failure('xx|x', 5, environ, config)
+
+        # XXX how to get the facility filename via an API ?
+        with open('/var/log/auth.log') as f:
+            logs = '\n'.join(f.read().split('\n')[-10:])
+
+        self.assertTrue('MySuperBrowser2' in logs)
