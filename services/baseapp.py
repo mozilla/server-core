@@ -79,7 +79,17 @@ class SyncServerApp(object):
         self.controllers = dict([(name, klass(self)) for name, klass in
                                  controllers.items()])
 
-        for verbs, match, controller, method, auth in urls:
+        for url in urls:
+            if len(url) == 4:
+                verbs, match, controller, method = url
+                extras = {}
+            elif len(url) == 5:
+                verbs, match, controller, method, extras = url
+            else:
+                msg = "Each URL description needs 4 or 5 elements. Got %s" \
+                    % str(url)
+                raise ValueError(msg)
+
             if isinstance(verbs, str):
                 verbs = [verbs]
             for pattern, replacer in (('_API_', '{api:1.0|1}'),
@@ -93,7 +103,7 @@ class SyncServerApp(object):
 
             self.mapper.connect(None, match, controller=controller,
                                 method=method, conditions=dict(method=verbs),
-                                auth=auth)
+                                **extras)
 
         # loads host-specific configuration
         self._host_configs = {}
