@@ -204,7 +204,7 @@ def set_app(urls, controllers, klass=SyncServerApp, auth_class=Authentication,
         params = convert_config(global_conf)
         app = klass(urls, controllers, params, auth_class)
 
-        if params.get('translogger', False):
+        if params.get('debug', False):
             app = TransLogger(app, logger_name='weaveserver',
                               setup_console_handler=True)
 
@@ -217,9 +217,9 @@ def set_app(urls, controllers, klass=SyncServerApp, auth_class=Authentication,
                                           flush_at_shutdown=True,
                                           path='/__profile__')
 
-        if params.get('debug', False):
+        if params.get('client_debug', False):
             app = ErrorMiddleware(app, debug=True,
-                                show_exceptions_in_wsgi_errors=True)
+                                  show_exceptions_in_wsgi_errors=True)
 
         if wrapper is not None:
             app = wrapper(app)
