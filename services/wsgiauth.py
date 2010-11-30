@@ -58,7 +58,7 @@ class Authentication(object):
         redirect to a login page.
 
         """
-        if match['auth'] != 'True':
+        if match.get('auth') != 'True':
             return
 
         user_id = self.authenticate_user(request, self.config,

@@ -64,8 +64,8 @@ class _Foo(object):
 class TestBaseApp(unittest.TestCase):
 
     def setUp(self):
-        urls = [('POST', '/', 'foo', 'index', False),
-                ('GET', '/secret', 'foo', 'secret', True)]
+        urls = [('POST', '/', 'foo', 'index'),
+                ('GET', '/secret', 'foo', 'secret', {'auth': True})]
         controllers = {'foo': _Foo}
         config = {'host:here.one.two': 1,
                   'one.two': 2,
