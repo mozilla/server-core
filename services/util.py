@@ -51,13 +51,10 @@ import re
 from functools import wraps
 import datetime
 import os
-import binascii
 
-from webob.exc import (HTTPUnauthorized, HTTPServiceUnavailable,
-                       HTTPBadRequest)
+from webob.exc import HTTPServiceUnavailable, HTTPBadRequest
 from webob import Response
 
-from services.cef import log_failure
 from services.config import Config, convert
 
 
@@ -78,59 +75,6 @@ def randchar(chars=string.digits + string.letters):
         return chars[pos % len(chars)]
     except NotImplementedError:
         return random.choice(chars)
-
-
-def authenticate_user(request, authtool, config, username=None):
-    """Authenticates a user and returns his id.
-
-    "request" is the request received, "authtool" is the authentication tool
-    that will be used to authenticate the user from the request.
-
-    The function makes sure that the user name found in the headers
-    is compatible with the username if provided.
-
-    It returns the user id from the database, if the password is the right
-    one.
-    """
-    environ = request.environ
-
-    if 'REMOTE_USER' in environ:
-        # already authenticated
-        return environ['REMOTE_USER']
-
-    auth = environ.get('HTTP_AUTHORIZATION')
-    if auth is not None:
-        # for now, only supporting basic authentication
-        # let's decipher the base64 encoded value
-        if not auth.startswith('Basic '):
-            raise HTTPUnauthorized('Invalid token')
-
-        auth = auth[len('Basic '):].strip()
-        try:
-            user_name, password = base64.decodestring(auth).split(':')
-        except (binascii.Error, ValueError):
-            raise HTTPUnauthorized('Invalid token')
-
-        # let's reject the call if the url is not owned by the user
-        if (username is not None and user_name != username):
-            log_failure('Username Does Not Match URL', 7, environ,
-                        config)
-            raise HTTPUnauthorized()
-
-        # let's try an authentication
-        user_id = authtool.authenticate_user(user_name, password)
-        if user_id is None:
-            log_failure('Authentication Failed', 5, environ, config)
-            raise HTTPUnauthorized()
-
-        # we're all clear ! setting up REMOTE_USER
-        request.remote_user = environ['REMOTE_USER'] = user_name
-
-        # we also want to keep the password in clear text to reuse it
-        # and remove it from the environ
-        request.user_password = password
-        del environ['HTTP_AUTHORIZATION']
-        return user_id
 
 
 def text_response(data, **kw):

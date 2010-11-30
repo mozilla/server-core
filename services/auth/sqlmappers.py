@@ -37,7 +37,7 @@
 """
 from sqlalchemy.schema import UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base, Column
-from sqlalchemy import Integer, String, DateTime, Text, BigInteger
+from sqlalchemy import Integer, String, DateTime, Text
 
 _Base = declarative_base()
 tables = []

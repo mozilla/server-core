@@ -35,31 +35,18 @@
 # ***** END LICENSE BLOCK *****
 import unittest
 import time
-from base64 import encodestring
 import tempfile
 import os
 
-from webob.exc import HTTPServiceUnavailable, HTTPUnauthorized
+from webob.exc import HTTPServiceUnavailable
 
-from services.util import (authenticate_user, convert_config, bigint2time,
+from services.util import (convert_config, bigint2time,
                            time2bigint, valid_email, batch, raise_503,
                            validate_password, ssha, ssha256,
                            valid_password, json_response,
                            newlines_response, whoisi_response, text_response,
                            extract_username)
 
-
-class Request(object):
-
-    def __init__(self, path_info, environ):
-        self.path_info = path_info
-        self.environ = environ
-
-
-class AuthTool(object):
-
-    def authenticate_user(self, *args):
-        return 1
 
 _EXTRA = """\
 [some]
@@ -71,31 +58,6 @@ thing = ok
 
 
 class TestUtil(unittest.TestCase):
-
-    def test_authenticate_user(self):
-        token = 'Basic ' + encodestring('tarek:tarek')
-        req = Request('/1.0/tarek/info/collections', {})
-        res = authenticate_user(req, AuthTool(), {})
-        self.assertEquals(res, None)
-
-        # authenticated by auth
-        req = Request('/1.0/tarek/info/collections',
-                {'HTTP_AUTHORIZATION': token})
-        res = authenticate_user(req, AuthTool(), {})
-        self.assertEquals(res, 1)
-
-        # weird tokens should not break the function
-        bad_token1 = 'Basic ' + encodestring('tarektarek')
-        bad_token2 = 'Basic' + encodestring('tarek:tarek')
-        req = Request('/1.0/tarek/info/collections',
-                {'HTTP_AUTHORIZATION': bad_token1})
-
-        self.assertRaises(HTTPUnauthorized, authenticate_user, req,
-                          AuthTool(), {})
-        req = Request('/1.0/tarek/info/collections',
-                {'HTTP_AUTHORIZATION': bad_token2})
-        self.assertRaises(HTTPUnauthorized, authenticate_user, req,
-                          AuthTool(), {})
 
     def test_convert_config(self):
         config = {'one': '1', 'two': 'bla', 'three': 'false'}

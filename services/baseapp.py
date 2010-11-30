@@ -44,12 +44,11 @@ from paste.exceptions.errormiddleware import ErrorMiddleware
 from routes import Mapper
 
 from webob.dec import wsgify
-from webob.exc import HTTPNotFound, HTTPUnauthorized, HTTPBadRequest
+from webob.exc import HTTPNotFound, HTTPBadRequest
 from webob import Response
 
-from services.util import authenticate_user, convert_config
-from services.auth import get_auth
-
+from services.util import convert_config
+from services.wsgiauth import Authentication
 
 # URL dispatching happens here
 # methods / match / controller / controller method / auth ?
@@ -65,15 +64,16 @@ class SyncServerApp(object):
     by using Routes.
     """
 
-    def __init__(self, urls, controllers, config=None):
+    def __init__(self, urls, controllers, config=None,
+                 auth_class=Authentication):
         self.mapper = Mapper()
         if config is not None:
             self.config = config
         else:
             self.config = {}
 
-        # loading the authentication backend
-        self.authtool = get_auth(self.config)
+        # loading the authentication tool
+        self.auth = auth_class(self.config)
 
         # loading and connecting controllers
         self.controllers = dict([(name, klass(self)) for name, klass in
@@ -147,16 +147,8 @@ class SyncServerApp(object):
 
         match, __ = match
 
-        if match['auth'] == 'True':
-            # needs auth
-            user_id = authenticate_user(request, self.authtool,
-                                        self.config, match.get('username'))
-            if user_id is None:
-                headers = [('WWW-Authenticate', 'Basic realm="Sync"'),
-                           ('Content-Type', 'text/plain')]
-                raise HTTPUnauthorized(headerlist=headers)
-
-            match['user_id'] = user_id
+        # authentication control
+        self.auth.check(request, match)
 
         function = self._get_function(match['controller'], match['method'])
         if function is None:
@@ -193,13 +185,14 @@ class SyncServerApp(object):
         return getattr(controller, method)
 
 
-def set_app(urls, controllers, klass=SyncServerApp, wrapper=None):
+def set_app(urls, controllers, klass=SyncServerApp, auth_class=Authentication,
+            wrapper=None):
     """make_app factory."""
     def make_app(global_conf, **app_conf):
         """Returns a Sync Server Application."""
         global_conf.update(app_conf)
         params = convert_config(global_conf)
-        app = klass(urls, controllers, params)
+        app = klass(urls, controllers, params, auth_class)
 
         if params.get('translogger', False):
             app = TransLogger(app, logger_name='weaveserver',
