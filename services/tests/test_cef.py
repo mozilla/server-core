@@ -103,6 +103,10 @@ class TestWeaveLogger(unittest.TestCase):
         log_failure('xx|x', 5, environ, config)
 
         # XXX how to get the facility filename via an API ?
+        # See http://bugs.python.org/issue10595
+        if not os.path.exists('/var/log/auth.log'):
+            return
+
         with open('/var/log/auth.log') as f:
             logs = '\n'.join(f.read().split('\n')[-10:])
 
@@ -128,6 +132,10 @@ class TestWeaveLogger(unittest.TestCase):
         log_failure('xx|x', 5, environ, config)
 
         # XXX how to get the facility filename via an API ?
+        # See http://bugs.python.org/issue10595
+        if not os.path.exists('/var/log/auth.log'):
+            return
+
         with open('/var/log/auth.log') as f:
             logs = '\n'.join(f.read().split('\n')[-10:])
 
