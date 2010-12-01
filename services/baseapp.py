@@ -50,14 +50,6 @@ from webob import Response
 from services.util import convert_config
 from services.wsgiauth import Authentication
 
-# URL dispatching happens here
-# methods / match / controller / controller method / auth ?
-
-# _API_ is replaced by {api:1.0|1}
-# _COLLECTION_ is replaced by {collection:[a-zA-Z0-9._-]+}
-# _USERNAME_ is replaced by {username:[a-zA-Z0-9._-]+}
-# _ITEM_ is replaced by {item:[\\a-zA-Z0-9._?#~-]+}
-
 
 class SyncServerApp(object):
     """ BaseServerApp dispatches the request to the right controller
@@ -92,14 +84,6 @@ class SyncServerApp(object):
 
             if isinstance(verbs, str):
                 verbs = [verbs]
-            for pattern, replacer in (('_API_', '{api:1.0|1}'),
-                                      ('_COLLECTION_',
-                                       '{collection:[a-zA-Z0-9._-]+}'),
-                                      ('_USERNAME_',
-                                       '{username:[a-zA-Z0-9._-]+}'),
-                                      ('_ITEM_',
-                                       r'{item:[\\a-zA-Z0-9._?#~-]+}')):
-                match = match.replace(pattern, replacer)
 
             self.mapper.connect(None, match, controller=controller,
                                 method=method, conditions=dict(method=verbs),
