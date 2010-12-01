@@ -205,7 +205,7 @@ def set_app(urls, controllers, klass=SyncServerApp, auth_class=Authentication,
         app = klass(urls, controllers, params, auth_class)
 
         if params.get('debug', False):
-            app = TransLogger(app, logger_name='weaveserver',
+            app = TransLogger(app, logger_name='syncserver',
                               setup_console_handler=True)
 
         if params.get('profile', False):
