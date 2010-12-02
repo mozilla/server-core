@@ -40,10 +40,6 @@ import random
 import datetime
 
 import ldap
-try:
-    from memcache import Client
-except ImportError:
-    Client = None   # NOQA
 
 from sqlalchemy.ext.declarative import declarative_base, Column
 from sqlalchemy import Integer, String, DateTime
@@ -101,9 +97,7 @@ class LDAPAuth(object):
                  admin_password='adminuser', users_root='ou=users,dc=mozilla',
                  users_base_dn=None, pool_size=100, pool_recycle=3600,
                  reset_on_return=True, single_box=False, ldap_timeout=-1,
-                 nodes_scheme='https', cache_servers=None,
-                 check_account_state=True,
-                 **kw):
+                 nodes_scheme='https', check_account_state=True, **kw):
         self.check_account_state = check_account_state
         self.ldapuri = ldapuri
         self.sqluri = sqluri
@@ -131,15 +125,6 @@ class LDAPAuth(object):
             table.metadata.bind = self._engine
             table.create(checkfirst=True)
 
-        if Client is not None:
-            if isinstance(cache_servers, str):
-                cache_servers = [cache_servers]
-            elif cache_servers is None:
-                cache_servers = ['127.0.0.1:11211']
-            self.cache = Client(cache_servers)
-        else:
-            self.cache = None
-
     def _conn(self, bind=None, passwd=None):
         return self.pool.connection(bind, passwd)
 
@@ -160,23 +145,7 @@ class LDAPAuth(object):
 
     def get_user_id(self, user_name):
         """Returns the id for a user name"""
-        user_name = str(user_name)   # XXX only ASCII
-        # the user id in LDAP is "uidNumber", and the use name is "uid"
-        dn = self._get_dn(user_name)
-
-        with self._conn() as conn:
-            try:
-                res = conn.search_st(dn, ldap.SCOPE_BASE,
-                                     attrlist=['uidNumber'],
-                                     timeout=self.ldap_timeout)
-            except ldap.NO_SUCH_OBJECT:
-                return None
-            except ldap.TIMEOUT:
-                raise BackendTimeoutError()
-
-        if res is None:
-            return None
-        return res[0][1]['uidNumber'][0]
+        return user_name
 
     def _get_next_user_id(self):
         """Returns the next user id"""
@@ -220,7 +189,7 @@ class LDAPAuth(object):
 
         Returns the user id in case of success. Returns None otherwise."""
         dn = self._get_dn(user_name)
-        attrs = ['uidNumber']
+        attrs = []
         if self.check_account_state:
             attrs.append('account-enabled')
 
@@ -241,7 +210,9 @@ class LDAPAuth(object):
         if self.check_account_state and user['account-enabled'][0] != 'Yes':
             return None
 
-        return user['uidNumber'][0]
+        # we are returning the user name here instead of the user_id
+        # so all APIs are called using the name
+        return user_name
 
     def generate_reset_code(self, user_id):
         """Generates a reset code
@@ -253,16 +224,15 @@ class LDAPAuth(object):
             a reset code, or None if the generation failed
         """
         code, expiration = generate_reset_code()
-        user_name, __ = self.get_user_info(user_id)
 
         # XXX : use onupdate when its mysql
         # otherwise an update
-        query = delete(reset_codes).where(reset_codes.c.username == user_name)
+        query = delete(reset_codes).where(reset_codes.c.username == user_id)
         self._engine.execute(query)
 
         query = insert(reset_codes).values(reset=code,
                                            expiration=expiration,
-                                           username=user_name)
+                                           username=user_id)
 
         res = self._engine.execute(query)
 
@@ -284,8 +254,7 @@ class LDAPAuth(object):
         if not check_reset_code(code):
             return False
 
-        user_name, __ = self.get_user_info(user_id)
-        res = self._engine.execute(_USER_RESET_CODE, user_name=user_name)
+        res = self._engine.execute(_USER_RESET_CODE, user_name=user_id)
         res = res.fetchone()
 
         if res is None or res.reset is None or res.expiration is None:
@@ -318,9 +287,8 @@ class LDAPAuth(object):
         Returns:
             True if the change was successful, False otherwise
         """
-        user_name, __ = self.get_user_info(user_id)
         query = delete(reset_codes)
-        query = query.where(reset_codes.c.username == user_name)
+        query = query.where(reset_codes.c.username == user_id)
         res = self._engine.execute(query)
         return res.rowcount > 0
 
@@ -333,42 +301,21 @@ class LDAPAuth(object):
         Returns:
             tuple: username, email
         """
-        def _get_user_info():
-            if self.users_root != 'md5':
-                dn = self.users_root
-                scope = ldap.SCOPE_SUBTREE
-            else:
-                dn = self._get_dn(user_id)
-                scope = ldap.SCOPE_BASE
+        dn = self._get_dn(user_id)
+        scope = ldap.SCOPE_BASE
 
-            with self._conn(self.admin_user, self.admin_password) as conn:
-                try:
-                    res = conn.search_st(dn, scope,
-                                         filterstr='(uidNumber=%s)' % user_id,
-                                         attrlist=['cn', 'mail'],
-                                         timeout=self.ldap_timeout)
-                except ldap.TIMEOUT:
-                    raise BackendTimeoutError()
+        with self._conn(self.admin_user, self.admin_password) as conn:
+            try:
+                res = conn.search_st(dn, scope, attrlist=['cn', 'mail'],
+                                     timeout=self.ldap_timeout)
+            except ldap.TIMEOUT:
+                raise BackendTimeoutError()
 
-            if res is None or len(res) == 0:
-                return None, None
+        if res is None or len(res) == 0:
+            return None, None
 
-            res = res[0][1]
-            return res['cn'][0], res['mail'][0]
-
-        if self.cache is None:
-            return _get_user_info()
-
-        key = 'info:%s' % user_id
-        res = self.cache.get(key)
-        if res is not None:
-            return res
-
-        res = _get_user_info()
-        try:
-            self.cache.set(key, res)
-        finally:
-            return res
+        res = res[0][1]
+        return res['cn'][0], res['mail'][0]
 
     def update_email(self, user_id, email):
         """Change the user e-mail
@@ -380,9 +327,8 @@ class LDAPAuth(object):
         Returns:
             True if the change was successful, False otherwise
         """
-        user_name, __ = self.get_user_info(user_id)
         user = [(ldap.MOD_REPLACE, 'mail', [email])]
-        dn = self._get_dn(user_name)
+        dn = self._get_dn(user_id)
 
         with self._conn(self.admin_user, self.admin_password) as conn:
             try:
@@ -390,8 +336,6 @@ class LDAPAuth(object):
             except ldap.TIMEOUT:
                 raise BackendTimeoutError()
 
-        if self.cache is not None:
-            self.cache.delete('info:%s' % user_id)
         return res == ldap.RES_MODIFY
 
     def update_password(self, user_id, password):
@@ -405,9 +349,8 @@ class LDAPAuth(object):
             True if the change was successful, False otherwise
         """
         password_hash = ssha(password)
-        user_name, __ = self.get_user_info(user_id)
         user = [(ldap.MOD_REPLACE, 'userPassword', [password_hash])]
-        dn = self._get_dn(user_name)
+        dn = self._get_dn(user_id)
 
         with self._conn(self.admin_user, self.admin_password) as conn:
             try:
@@ -428,11 +371,7 @@ class LDAPAuth(object):
             True if the deletion was successful, False otherwise
         """
         user_id = str(user_id)
-        user_name, __ = self.get_user_info(user_id)
-        if self.cache is not None:
-            self.cache.delete('info:%s' % user_id)
-
-        dn = self._get_dn(user_name)
+        dn = self._get_dn(user_id)
         if password is None:
             return False   # we need a password
 
@@ -454,8 +393,7 @@ class LDAPAuth(object):
             return None
 
         user_id = str(user_id)
-        user_name, __ = self.get_user_info(user_id)
-        dn = self._get_dn(user_name)
+        dn = self._get_dn(user_id)
 
         # getting the list of primary nodes
         with self._conn() as conn:
