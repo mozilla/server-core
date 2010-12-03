@@ -149,14 +149,15 @@ class TestLDAPSQLAuth(unittest.TestCase):
         auth = LDAPAuth('ldap://localhost',
                         'sqlite:///:memory:')
 
-        sql = ('insert into available_nodes (node, ct, actives) '
-                'values("%s", %d, %d)')
+        sql = ('insert into available_nodes '
+               '(node, available_assignments, actives, downed) '
+                'values("%s", %d, %d, %d)')
 
-        for node, ct, actives in (('node1', 10, 101),
-                                  ('node2', 0, 100),
-                                  ('node3', 1, 89)):
+        for node, ct, actives, downed in (('node1', 10, 101, 0),
+                                          ('node2', 0, 100,  0),
+                                          ('node3', 1, 89, 0)):
 
-            auth._engine.execute(sql % (node, ct, actives))
+            auth._engine.execute(sql % (node, ct, actives, downed))
 
         auth.create_user('tarek', 'tarek', 'tarek@ziade.org')
         uid = auth.get_user_id('tarek')

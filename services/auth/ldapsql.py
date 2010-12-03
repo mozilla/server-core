@@ -44,7 +44,7 @@ import ldap
 from sqlalchemy.ext.declarative import declarative_base, Column
 from sqlalchemy import Integer, String, DateTime
 from sqlalchemy import create_engine, SmallInteger
-from sqlalchemy.sql import bindparam, select, insert, delete, update
+from sqlalchemy.sql import bindparam, select, insert, delete, update, and_
 
 from services.util import (generate_reset_code, check_reset_code, ssha,
                            BackendTimeoutError)
@@ -74,11 +74,12 @@ userids = UserIds.__table__
 
 class AvailableNodes(_Base):
     __tablename__ = 'available_nodes'
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    ct = Column(SmallInteger)
+    # XXX the table has more fields we don't user yet
+    node = Column(String(256), primary_key=True, default='')
+    available_assignments = Column(SmallInteger)
+    downed = Column(SmallInteger, default=0)
+    backoff = Column(SmallInteger, default=0)
     actives = Column(Integer(11))
-    node = Column(String(256))
 
 available_nodes = AvailableNodes.__table__
 
@@ -306,16 +307,18 @@ class LDAPAuth(object):
 
         with self._conn(self.admin_user, self.admin_password) as conn:
             try:
-                res = conn.search_st(dn, scope, attrlist=['cn', 'mail'],
+                res = conn.search_st(dn, scope, attrlist=['mail'],
                                      timeout=self.ldap_timeout)
             except ldap.TIMEOUT:
                 raise BackendTimeoutError()
+            except ldap.NO_SUCH_OBJECT:
+                return None, None
 
         if res is None or len(res) == 0:
             return None, None
 
         res = res[0][1]
-        return res['cn'][0], res['mail'][0]
+        return user_id, res['mail'][0]
 
     def update_email(self, user_id, email):
         """Change the user e-mail
@@ -413,18 +416,21 @@ class LDAPAuth(object):
             # we want to return the URL
             return '%s://%s/' % (self.nodes_scheme, node)
 
-        # the user don't have a node yet
-        # let's pick the most bored node
-        query = select([available_nodes]).where(available_nodes.c.ct > 0)
+        # the user don't have a node yet, let's pick the most bored node
+        where = and_(available_nodes.c.available_assignments > 0,
+                     available_nodes.c.downed == 0)
+        query = select([available_nodes]).where(where)
         query = query.order_by(available_nodes.c.actives).limit(1)
 
         res = self._engine.execute(query)
         res = res.fetchone()
         if res is None:
             # unable to get a node
-            raise NodeAttributionError(user_name)
+            raise NodeAttributionError(user_id)
 
         node = str(res.node)
+        available = res.available_assignments
+        actives = res.actives
 
         # updating LDAP now
         user = [(ldap.MOD_REPLACE, 'primaryNode',
@@ -438,14 +444,15 @@ class LDAPAuth(object):
 
         if ldap_res != ldap.RES_MODIFY:
             # unable to set the node in LDAP
-            raise NodeAttributionError(user_name)
+            raise NodeAttributionError(user_id)
 
         # node is set at this point
         try:
             # book-keeping in sql
             query = update(available_nodes)
             query = query.where(available_nodes.c.node == node)
-            query = query.values(ct=res.ct - 1, actives=res.actives + 1)
+            query = query.values(available_assignments=available - 1,
+                                 actives=actives + 1)
             self._engine.execute(query)
         finally:
             # we want to return the node even if the sql update fails
