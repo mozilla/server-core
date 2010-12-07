@@ -49,11 +49,13 @@ if LDAP:
 
         users = {'uid=tarek,ou=users,dc=mozilla':
                 {'uidNumber': ['1'],
+                 'uid': ['tarek'],
                  'account-enabled': ['Yes'],
                  'mail': ['tarek@mozilla.com'],
                  'cn': ['tarek']},
                  'cn=admin,dc=mozilla': {'cn': ['admin'],
                  'mail': ['admin'],
+                 'uid': ['admin'],
                  'uidNumber': ['100']}}
 
         def __init__(self):
@@ -66,10 +68,10 @@ if LDAP:
         def search_st(self, dn, *args, **kw):
             if dn in self.users:
                 return [(dn, self.users[dn])]
-            elif dn == 'ou=users,dc=mozilla':
-                uid = kw['filterstr'].split('=')[-1][:-1]
+            elif dn in ('ou=users,dc=mozilla', 'md5'):
+                key, field = kw['filterstr'][1:-1].split('=')
                 for dn_, value in self.users.items():
-                    if value['uidNumber'][0] != uid:
+                    if value[key][0] != field:
                         continue
                     return [(dn_, value)]
             raise ldap.NO_SUCH_OBJECT
@@ -93,6 +95,12 @@ if LDAP:
         def delete_s(self, dn):
             if dn in self.users:
                 del self.users[dn]
+            elif dn in ('ou=users,dc=mozilla', 'md5'):
+                key, field = kw['filterstr'][1:-1].split('=')
+                for dn_, value in self.users.items():
+                    if value[key][0] == field:
+                        del value[key]
+                        return ldap.RES_DELETE, ''
             return ldap.RES_DELETE, ''
 
     from contextlib import contextmanager

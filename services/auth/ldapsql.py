@@ -144,9 +144,48 @@ class LDAPAuth(object):
         dcs.append(self.users_base_dn)
         return 'uid=%s,%s' % (uid, ','.join(dcs))
 
+    def _get_username(self, user_id):
+        """Returns the name for a user id"""
+        dn = self.users_root
+        scope = ldap.SCOPE_SUBTREE
+        filter = '(uidNumber=%s)' % user_id
+
+        with self._conn(self.admin_user, self.admin_password) as conn:
+            try:
+                user = conn.search_st(dn, scope, filterstr=filter,
+                                      attrlist=['uid'],
+                                      timeout=self.ldap_timeout)
+            except ldap.TIMEOUT:
+                raise BackendTimeoutError()
+            except ldap.NO_SUCH_OBJECT:
+                return None
+
+        if user is None:
+            return None
+
+        user = user[0][1]
+        return user['uid'][0]
+
     def get_user_id(self, user_name):
         """Returns the id for a user name"""
-        return user_name
+        dn = self.users_root
+        scope = ldap.SCOPE_SUBTREE
+        filter = '(uid=%s)' % user_name
+
+        with self._conn(self.admin_user, self.admin_password) as conn:
+            try:
+                user = conn.search_st(dn, scope, filterstr=filter,
+                                      attrlist=['uidNumber'],
+                                      timeout=self.ldap_timeout)
+            except ldap.TIMEOUT:
+                raise BackendTimeoutError()
+            except ldap.NO_SUCH_OBJECT:
+                return None
+
+        if user is None:
+            return None
+        user = user[0][1]
+        return user['uidNumber'][0]
 
     def _get_next_user_id(self):
         """Returns the next user id"""
@@ -190,7 +229,7 @@ class LDAPAuth(object):
 
         Returns the user id in case of success. Returns None otherwise."""
         dn = self._get_dn(user_name)
-        attrs = []
+        attrs = ['uidNumber']
         if self.check_account_state:
             attrs.append('account-enabled')
 
@@ -211,9 +250,7 @@ class LDAPAuth(object):
         if self.check_account_state and user['account-enabled'][0] != 'Yes':
             return None
 
-        # we are returning the user name here instead of the user_id
-        # so all APIs are called using the name
-        return user_name
+        return user['uidNumber'][0]
 
     def generate_reset_code(self, user_id):
         """Generates a reset code
@@ -302,7 +339,8 @@ class LDAPAuth(object):
         Returns:
             tuple: username, email
         """
-        dn = self._get_dn(user_id)
+        user_name = self._get_username(user_id)
+        dn = self._get_dn(user_name)
         scope = ldap.SCOPE_BASE
 
         with self._conn(self.admin_user, self.admin_password) as conn:
@@ -331,7 +369,8 @@ class LDAPAuth(object):
             True if the change was successful, False otherwise
         """
         user = [(ldap.MOD_REPLACE, 'mail', [email])]
-        dn = self._get_dn(user_id)
+        user_name = self._get_username(user_id)
+        dn = self._get_dn(user_name)
 
         with self._conn(self.admin_user, self.admin_password) as conn:
             try:
@@ -353,6 +392,7 @@ class LDAPAuth(object):
         """
         password_hash = ssha(password)
         user = [(ldap.MOD_REPLACE, 'userPassword', [password_hash])]
+        user_name = self._get_username(user_id)
         dn = self._get_dn(user_id)
 
         with self._conn(self.admin_user, self.admin_password) as conn:
@@ -373,8 +413,8 @@ class LDAPAuth(object):
         Returns:
             True if the deletion was successful, False otherwise
         """
-        user_id = str(user_id)
-        dn = self._get_dn(user_id)
+        user_name = self._get_username(user_id)
+        dn = self._get_dn(user_name)
         if password is None:
             return False   # we need a password
 
@@ -395,8 +435,8 @@ class LDAPAuth(object):
         if self.single_box:
             return None
 
-        user_id = str(user_id)
-        dn = self._get_dn(user_id)
+        user_name = self._get_username(user_id)
+        dn = self._get_dn(user_name)
 
         # getting the list of primary nodes
         with self._conn() as conn:
