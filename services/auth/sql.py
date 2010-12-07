@@ -73,7 +73,8 @@ class SetTextFactory(PoolListener):
 class SQLAuth(object):
     """SQL authentication."""
 
-    def __init__(self, sqluri=_SQLURI, pool_size=20, pool_recycle=3600, **kw):
+    def __init__(self, sqluri=_SQLURI, pool_size=20, pool_recycle=3600,
+                 create_tables=True, **kw):
         sqlkw = {'pool_size': int(pool_size),
                  'pool_recycle': int(pool_recycle),
                  'logging_name': 'weaveserver'}
@@ -86,7 +87,8 @@ class SQLAuth(object):
 
         self._engine = create_engine(sqluri, **sqlkw)
         users.metadata.bind = self._engine
-        users.create(checkfirst=True)
+        if create_tables:
+            users.create(checkfirst=True)
         self.sqluri = sqluri
 
     @classmethod

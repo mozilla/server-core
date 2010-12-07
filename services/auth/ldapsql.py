@@ -98,7 +98,8 @@ class LDAPAuth(object):
                  admin_password='adminuser', users_root='ou=users,dc=mozilla',
                  users_base_dn=None, pool_size=100, pool_recycle=3600,
                  reset_on_return=True, single_box=False, ldap_timeout=-1,
-                 nodes_scheme='https', check_account_state=True, **kw):
+                 nodes_scheme='https', check_account_state=True,
+                 create_tables=True, **kw):
         self.check_account_state = check_account_state
         self.ldapuri = ldapuri
         self.sqluri = sqluri
@@ -124,7 +125,8 @@ class LDAPAuth(object):
         self._engine = create_engine(sqluri, **sqlkw)
         for table in tables:
             table.metadata.bind = self._engine
-            table.create(checkfirst=True)
+            if create_tables:
+                table.create(checkfirst=True)
 
     def _conn(self, bind=None, passwd=None):
         return self.pool.connection(bind, passwd)

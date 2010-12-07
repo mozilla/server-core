@@ -33,10 +33,12 @@
 # the terms of any one of the MPL, the GPL or the LGPL.
 #
 # ***** END LICENSE BLOCK *****
+import os
 import unittest
 import datetime
 
 from sqlalchemy.sql import text
+from sqlalchemy.exc import OperationalError
 
 from services.tests.support import initenv
 from services.auth.sql import SQLAuth
@@ -106,6 +108,16 @@ class TestSQLAuth(unittest.TestCase):
         # people with status '0' are disabled
         self.auth._engine.execute('update users set status=0')
         self.assertEquals(self.auth.authenticate_user('tarek', 'tarek'), None)
+
+    def test_no_create(self):
+        # testing the create_tables option
+        testsdir = os.path.dirname(__file__)
+        conf = os.path.join(testsdir, 'tests.ini')
+        appdir, config, auth = initenv(conf)
+
+        # this should fail because the table is absent
+        self.assertRaises(OperationalError, auth.authenticate_user,
+                         'tarek', 'tarek')
 
 
 def test_suite():

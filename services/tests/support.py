@@ -57,20 +57,20 @@ while True:
     _TOPDIR = os.path.split(_TOPDIR)[0]
 
 
-def initenv():
+def initenv(config=_INI_FILE):
     """Reads the config file and instanciates an auth and a storage.
 
     The WEAVE_TESTFILE=name environment variable can be used to point
     a particular tests_name.ini file.
     """
     cfg = RawConfigParser()
-    cfg.read(_INI_FILE)
+    cfg.read(config)
 
     # loading loggers
     if cfg.has_section('loggers'):
-        fileConfig(_INI_FILE)
+        fileConfig(config)
 
-    here = {'here': os.path.dirname(os.path.realpath(_INI_FILE))}
+    here = {'here': os.path.dirname(os.path.realpath(config))}
     config = dict([(key, value % here)for key, value in
                    cfg.items('DEFAULT') + cfg.items('app:main')])
     config = convert_config(config)
