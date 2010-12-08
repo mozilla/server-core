@@ -95,13 +95,13 @@ class SyncServerApp(object):
     def _before_call(self, request):
         return {}
 
-    def _host_specific(self, request, config):
+    def _host_specific(self, host, config):
         """Will compute host-specific requests"""
-        if request.host in self._host_configs:
-            return self._host_configs[request.host]
+        if host in self._host_configs:
+            return self._host_configs[host]
 
         # overrides the original value with the host-specific value
-        host_section = 'host:%s.' % request.host
+        host_section = 'host:%s.' % host
         host_config = {}
         overriden_keys = []
         for key, value in config.items():
@@ -113,7 +113,7 @@ class SyncServerApp(object):
                 overriden_keys.append(key)
             host_config[key] = value
 
-        self._host_configs[request.host] = host_config
+        self._host_configs[host] = host_config
         return host_config
 
     @wsgify
@@ -124,7 +124,7 @@ class SyncServerApp(object):
         request.server_time = round(time.time(), 2)
 
         # gets request-specific config
-        request.config = self._host_specific(request, self.config)
+        request.config = self._host_specific(request.host, self.config)
 
         # pre-hook
         before_headers = self._before_call(request)
