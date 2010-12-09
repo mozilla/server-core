@@ -149,10 +149,12 @@ class LDAPAuth(object):
     def _get_username(self, user_id):
         """Returns the name for a user id"""
         dn = self.users_root
+        if dn == 'md5':
+            dn = self.users_base_dn
         scope = ldap.SCOPE_SUBTREE
         filter = '(uidNumber=%s)' % user_id
 
-        with self._conn(self.admin_user, self.admin_password) as conn:
+        with self._conn() as conn:
             try:
                 user = conn.search_st(dn, scope, filterstr=filter,
                                       attrlist=['uid'],
@@ -162,7 +164,7 @@ class LDAPAuth(object):
             except ldap.NO_SUCH_OBJECT:
                 return None
 
-        if user is None:
+        if user is None or len(user) == 0:
             return None
 
         user = user[0][1]
@@ -171,10 +173,12 @@ class LDAPAuth(object):
     def get_user_id(self, user_name):
         """Returns the id for a user name"""
         dn = self.users_root
+        if dn == 'md5':
+            dn = self.users_base_dn
         scope = ldap.SCOPE_SUBTREE
         filter = '(uid=%s)' % user_name
 
-        with self._conn(self.admin_user, self.admin_password) as conn:
+        with self._conn() as conn:
             try:
                 user = conn.search_st(dn, scope, filterstr=filter,
                                       attrlist=['uidNumber'],
@@ -184,7 +188,7 @@ class LDAPAuth(object):
             except ldap.NO_SUCH_OBJECT:
                 return None
 
-        if user is None:
+        if user is None or len(user) == 0:
             return None
         user = user[0][1]
         return user['uidNumber'][0]

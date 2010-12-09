@@ -68,7 +68,7 @@ if LDAP:
         def search_st(self, dn, *args, **kw):
             if dn in self.users:
                 return [(dn, self.users[dn])]
-            elif dn in ('ou=users,dc=mozilla', 'md5'):
+            elif dn in ('ou=users,dc=mozilla', 'dc=mozilla', 'md5'):
                 key, field = kw['filterstr'][1:-1].split('=')
                 for dn_, value in self.users.items():
                     if value[key][0] != field:
