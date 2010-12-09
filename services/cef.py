@@ -34,6 +34,7 @@
 #
 # ***** END LICENSE BLOCK *****
 import sys
+import threading
 try:
     import syslog
     _SYSLOG_OPTIONS = {'PID': syslog.LOG_PID,
@@ -76,7 +77,7 @@ except ImportError:
 import socket
 from time import strftime
 import re
-
+from services import logger
 
 _HOST = socket.gethostname()
 
@@ -97,8 +98,8 @@ _FIND_PIPE = re.compile(r'([|\\=])')
 
 def _to_str(data):
     """Converts to str, encoding unicode strings with utf8"""
-    if isinstance(data, str):
-        return data.decode('utf8')
+    if isinstance(data, unicode):
+        return data.encode('utf8')
     return str(data)
 
 
@@ -108,14 +109,28 @@ def _convert(data):
     return _FIND_PIPE.sub(r'\\\1', data)
 
 
-_LOG_OPENED = False
+_LOG_OPENED = None
+
+# will make log writing atomic per-process
+# unfortunately this will not work when several process uses it
+# so lines might get mixed on high loads.
+# we would need a dedicated per-server log service for this
+# to serialize all logs
+_log_lock = threading.RLock()
 
 
-def _openlog(ident=sys.argv[0], logopt=0, facility=8):
-    """Opens the log with configured options"""
-    global _LOG_OPENED
-    syslog.openlog(ident, logopt, facility)
-    _LOG_OPENED = True
+def _syslog(msg, config):
+    """Opens the log with configured options and logs."""
+    logopt = _str2logopt(config.get('syslog_options'))
+    facility = _str2facility(config.get('syslog_facility'))
+    ident = config.get('syslog_ident', sys.argv[0])
+    priority = _str2priority(config.get('syslog.priority'))
+    with _log_lock:
+        global _LOG_OPENED
+        if _LOG_OPENED != (ident, logopt, facility):
+            syslog.openlog(ident, logopt, facility)
+            _LOG_OPENED = ident, logopt, facility
+        syslog.syslog(priority, msg)
 
 
 def _str2logopt(value):
@@ -135,7 +150,7 @@ def _str2priority(value):
 
 def _str2facility(value):
     if value is None:
-        return syslog.LOG_USER
+        return syslog.LOG_LOCAL4
     return _SYSLOG_FACILITY[value.strip()]
 
 
@@ -160,16 +175,10 @@ def log_failure(message, severity, environ, config, signature=AUTH_FAILURE,
     config = filter_params('cef', config)
 
     source = None
-    for header in ('X_FORWARDED_FOR', 'REMOTE_ADDR'):
+    for header in ('HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'):
         if header in environ:
             source = environ[header]
             break
-
-    # make sure we don't have a | anymore in regular fields
-    for key in kw:
-        if len(_FIND_PIPE.findall(key)) > 0:
-            msg = '"%s" cannot contain a "|" or "=" char' % key
-            raise ValueError(msg)
 
     fields = {'severity': severity,
               'source': source,
@@ -186,21 +195,29 @@ def log_failure(message, severity, environ, config, signature=AUTH_FAILURE,
               'host': _HOST,
               'date': strftime("%b %d %H:%M:%S")}
 
-    kw.update(fields)
+    # make sure we don't have a | anymore in regular fields
+    for key, value in list(kw.items()):
+        if len(_FIND_PIPE.findall(key)) == 0:
+            continue
+        msg = '"%s" cannot contain a "|" or "=" char' % key
+        logger.warning(msg)
 
-    msg = _CEF_FORMAT % kw
+        # replacing pipes with a '?'
+        kw[_FIND_PIPE.sub('?', key)] = value
+        del kw[key]
+
+
+    # overriding with provided datas
+    fields.update(kw)
+
+    # building the message
+    msg = _CEF_FORMAT % fields
 
     if config['file'] == 'syslog':
         if not SYSLOG:
             raise ValueError('syslog not supported on this platform')
-
-        if not _LOG_OPENED:
-            logopt = _str2logopt(config.get('syslog_options'))
-            facility = _str2facility(config.get('syslog_facility'))
-            _openlog(config.get('syslog_ident', sys.argv[0]), logopt, facility)
-
-        priority = _str2priority(config.get('syslog.priority'))
-        syslog.syslog(priority, msg)
+        _syslog(msg, config)
     else:
-        with open(config['file'], 'a') as f:
-            f.write('%s\n' % msg)
+        with _log_lock:
+            with open(config['file'], 'a') as f:
+                f.write('%s\n' % msg)

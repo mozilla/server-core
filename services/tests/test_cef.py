@@ -36,9 +36,11 @@
 import unittest
 import os
 from tempfile import mkstemp
+import sys
+import StringIO
 
 from services.cef import log_failure
-
+from services import logger
 
 class TestWeaveLogger(unittest.TestCase):
 
@@ -79,9 +81,19 @@ class TestWeaveLogger(unittest.TestCase):
         cs = 'cs1Label=requestClientApplication cs1=\| '
         self.assertTrue(cs in content)
 
-        # should fail because extra keys shouldn't have pipes
-        self.assertRaises(ValueError, log_failure, 'xxx', 5, environ, config,
-                          **{'ba|d': 1})
+        # should log.warn because extra keys shouldn't have pipes
+        _warn = []
+        def _warning(warn):
+            _warn.append(warn)
+
+        old = logger.warning
+        logger.warning = _warning
+        try:
+            log_failure('xxx', 5, environ, config, **{'ba|d': 1})
+        finally:
+            logger.warning = old
+
+        self.assertEqual('"ba|d" cannot contain a "|" or "=" char', _warn[0])
 
     def test_cef_syslog(self):
         try:
