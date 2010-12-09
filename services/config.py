@@ -49,7 +49,7 @@ class EnvironmentNotFoundError(Error):
     """Raised when an environment variable is not found"""
 
     def __init__(self, varname):
-        Error.__init__(self, 'Variable not found "%s"' % varname)
+        Error.__init__(self, 'Variable not found %r' % varname)
         self.varname = varname
 
 
