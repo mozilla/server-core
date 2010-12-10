@@ -76,3 +76,13 @@ def initenv(config=_INI_FILE):
     config = convert_config(config)
     auth = ServicesAuth.get_from_config(config)
     return _TOPDIR, config, auth
+
+def get_app(wrapped):
+    app = wrapped
+    while True:
+        if hasattr(app, 'app'):
+            app = app.app
+        elif hasattr(app, 'application'):
+            app = app.application
+        else:
+            return app
