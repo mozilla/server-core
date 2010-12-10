@@ -36,8 +36,10 @@
 """
 Various utilities
 """
+import traceback
 import random
 import string
+import sys
 from hashlib import sha256, sha1
 import base64
 import simplejson as json
@@ -51,6 +53,7 @@ import re
 from functools import wraps
 import datetime
 import os
+import logging
 
 from webob.exc import HTTPServiceUnavailable, HTTPBadRequest
 from webob import Response
@@ -382,3 +385,23 @@ def extract_username(username):
         return username
     hashed = sha1(username.lower()).digest()
     return base64.b32encode(hashed).lower()
+
+
+class CatchErrorMiddleware(object):
+    """Middleware that catches error, log them and return a 500"""
+    def __init__(self, app, logger_name='root'):
+        self.app = app
+        self.logger = logging.getLogger(logger_name)
+
+    def __call__(self, environ, start_response):
+        try:
+            return self.app(environ, start_response)
+        except:
+            err = traceback.format_exc()
+            self.logger.error(err)
+            try:
+                start_response('500 Internal Server Error',
+                               [('content-type', 'text/plain')])
+                return []
+            finally:
+                exc_info = None

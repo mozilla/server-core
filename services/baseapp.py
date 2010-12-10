@@ -47,7 +47,7 @@ from webob.dec import wsgify
 from webob.exc import HTTPNotFound, HTTPBadRequest
 from webob import Response
 
-from services.util import convert_config
+from services.util import convert_config, CatchErrorMiddleware
 from services.wsgiauth import Authentication
 
 
@@ -179,6 +179,8 @@ class SyncServerApp(object):
         return getattr(controller, method)
 
 
+
+
 def set_app(urls, controllers, klass=SyncServerApp, auth_class=Authentication,
             wrapper=None):
     """make_app factory."""
@@ -202,8 +204,13 @@ def set_app(urls, controllers, klass=SyncServerApp, auth_class=Authentication,
                                           path='/__profile__')
 
         if params.get('client_debug', False):
+            # errors are displayed in the user client
             app = ErrorMiddleware(app, debug=True,
                                   show_exceptions_in_wsgi_errors=True)
+        else:
+            # errors are logged and a 500 is returned with an empty body
+            # to avoid any security whole
+            app = CatchErrorMiddleware(app, logger_name='syncserver')
 
         if wrapper is not None:
             app = wrapper(app)
