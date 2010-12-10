@@ -41,7 +41,7 @@ import os
 from webob.exc import HTTPServiceUnavailable
 
 from services.util import (convert_config, bigint2time,
-                           time2bigint, valid_email, batch, raise_503,
+                           time2bigint, valid_email, batch,
                            validate_password, ssha, ssha256,
                            valid_password, json_response,
                            newlines_response, whoisi_response, text_response,
@@ -100,24 +100,6 @@ class TestUtil(unittest.TestCase):
         self.assertEquals(len(list(batch(range(250)))), 3)
         self.assertEquals(len(list(batch(range(190)))), 2)
         self.assertEquals(len(list(batch(range(24, 25)))), 1)
-
-    def test_raise_503(self):
-
-        class BadStuff(object):
-
-            def boo(self):
-                return 1
-
-            def boomya(self):
-                """doc"""
-                raise TypeError('dead')
-
-        bad = BadStuff()
-        bad = raise_503(bad)
-        self.assertEquals(bad.boo(), 1)
-        self.assertRaises(HTTPServiceUnavailable, bad.boomya)
-        self.assertEquals(bad.boomya.__doc__, 'doc')
-        self.assertEquals(bad.boomya.__name__, 'boomya')
 
     def test_validate_password(self):
         one = ssha('one')

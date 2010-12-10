@@ -324,43 +324,6 @@ class BackendTimeoutError(Exception):
     pass
 
 
-def raise_503(instance):
-    """Will issue a 503 on any exception.
-
-    If the error is a timeout, will add a Retry-After header
-
-    Args:
-        instance: any instance of a class
-
-    Response:
-        the instance, with its public callables decorated
-    """
-
-    def _503_func(func):
-        @wraps(func)
-        def __503_func(*args, **kw):
-            try:
-                return func(*args, **kw)
-            except BackendTimeoutError, e:
-                exc = HTTPServiceUnavailable(str(e))
-                exc.headers['Retry-After'] = 120
-                raise exc
-            except Exception, e:
-                raise HTTPServiceUnavailable(str(e))
-        return __503_func
-
-    for func in dir(instance):
-        if func.startswith('_'):
-                continue
-        _func = getattr(instance, func)
-        if not callable(_func):
-            continue
-        _func = _503_func(_func)
-        setattr(instance, func, _func)
-
-    return instance
-
-
 def generate_reset_code():
     """Generates a reset code
 
