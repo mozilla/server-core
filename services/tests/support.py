@@ -44,6 +44,7 @@ import services
 _WEAVEDIR = os.path.dirname(services.__file__)
 _TOPDIR = os.path.split(_WEAVEDIR)[0]
 
+
 class TestEnv(object):
     """Class to try to establish the base environment for the tests"""
     def __init__(self, base):
@@ -54,27 +55,27 @@ class TestEnv(object):
             test_filename = 'tests_%s.ini' % os.environ['WEAVE_TESTFILE']
         else:
             test_filename = 'tests.ini'
-            
+
         while True:
 
-            _INI_FILE = os.path.join(self._TOPDIR, test_filename)
-            if os.path.exists(_INI_FILE):
+            ini_file = os.path.join(self._TOPDIR, test_filename)
+            if os.path.exists(ini_file):
                 break
 
-            if _INI_FILE == ("/%s" % test_filename) \
-                or _INI_FILE == test_filename:
+            if ini_file == ("/%s" % test_filename) \
+                or ini_file == test_filename:
                 raise IOError("cannot locate %s" % test_filename)
 
             self._TOPDIR = os.path.split(self._TOPDIR)[0]
 
         cfg = RawConfigParser()
-        cfg.read(_INI_FILE)
+        cfg.read(ini_file)
 
         # loading loggers
         if cfg.has_section('loggers'):
-            fileConfig(_INI_FILE)
+            fileConfig(ini_file)
 
-        here = {'here': os.path.dirname(os.path.realpath(_INI_FILE))}
+        here = {'here': os.path.dirname(os.path.realpath(ini_file))}
         config = dict([(key, value % here) for key, value in
                       cfg.items('DEFAULT') + cfg.items('app:main')])
         self._CONFIG = convert_config(config)
@@ -86,28 +87,36 @@ class TestEnv(object):
         return self._CONFIG
 
 
-#non-class way of doing this
+# non-class way of doing this
 def initenv(config=None):
     """Reads the config file and instanciates an auth and a storage.
 
     The WEAVE_TESTFILE=name environment variable can be used to point
     a particular tests_name.ini file.
     """
+    topdir = os.path.split(_TOPDIR)[0]
+
+    if 'WEAVE_TESTFILE' in os.environ:
+        test_filename = 'tests_%s.ini' % os.environ['WEAVE_TESTFILE']
+    else:
+        test_filename = 'tests.ini'
+
+
     while True:
-        if 'WEAVE_TESTFILE' in os.environ:
-            _INI_FILE = os.path.join(_TOPDIR, 'tests_%s.ini' % \
-                                     os.environ['WEAVE_TESTFILE'])
-        else:
-            _INI_FILE = os.path.join(_TOPDIR, 'tests.ini')
-    
-        if os.path.exists(_INI_FILE):
+        ini_file = os.path.join(topdir, test_filename)
+        if os.path.exists(ini_file):
             break
-    
-        _TOPDIR = os.path.split(_TOPDIR)[0]
+
+        topdir = os.path.split(topdir)[0]
+        if topdir == '/':
+            break
+
+    if not os.path.exists(ini_file):
+        raise IOError("cannot locate %s" % test_filename)
 
     if config is None:
-        config = _INI_FILE
-        
+        config = ini_file
+
     cfg = RawConfigParser()
     cfg.read(config)
 
@@ -120,7 +129,8 @@ def initenv(config=None):
                    cfg.items('DEFAULT') + cfg.items('app:main')])
     config = convert_config(config)
     auth = ServicesAuth.get_from_config(config)
-    return _TOPDIR, config, auth
+    return topdir, config, auth
+
 
 def get_app(wrapped):
     app = wrapped
