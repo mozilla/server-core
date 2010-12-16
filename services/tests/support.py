@@ -45,7 +45,7 @@ _WEAVEDIR = os.path.dirname(services.__file__)
 _TOPDIR = os.path.split(_WEAVEDIR)[0]
 
 class TestEnv(object):
-"""Class to try to establish the base environment for the tests"""
+    """Class to try to establish the base environment for the tests"""
     def __init__(self, base):
         _WEAVEDIR = os.path.dirname(base)
         self._TOPDIR = os.path.split(_WEAVEDIR)[0]
