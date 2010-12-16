@@ -87,7 +87,7 @@ class TestEnv(object):
 
 
 #non-class way of doing this
-def initenv(config=_INI_FILE):
+def initenv(config=None):
     """Reads the config file and instanciates an auth and a storage.
 
     The WEAVE_TESTFILE=name environment variable can be used to point
@@ -105,6 +105,9 @@ def initenv(config=_INI_FILE):
     
         _TOPDIR = os.path.split(_TOPDIR)[0]
 
+    if config is None:
+        config = _INI_FILE
+        
     cfg = RawConfigParser()
     cfg.read(config)
 
