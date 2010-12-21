@@ -47,7 +47,7 @@ from services.util import (convert_config, bigint2time,
                            validate_password, ssha, ssha256,
                            valid_password, json_response,
                            newlines_response, whoisi_response, text_response,
-                           extract_username, get_url)
+                           extract_username, get_url, proxy)
 
 
 _EXTRA = """\
@@ -72,12 +72,13 @@ class TestUtil(unittest.TestCase):
         # mimics urlopen
         class FakeResult(object):
             headers = {}
+            body = '{}'
 
             def getcode(self):
                 return 200
 
             def read(self):
-                return '{}'
+                return self.body
 
         url = req.get_full_url()
         if url == 'impossible url':
@@ -95,8 +96,13 @@ class TestUtil(unittest.TestCase):
             raise urllib2.URLError(socket.timeout())
         if url == 'http://error':
             raise urllib2.HTTPError(url, 500, 'Error', {}, None)
+        if url == 'http://newplace':
+            res = FakeResult()
+            res.body = url
+            return res
 
-        raise
+        raise ValueError(url)
+
     def test_convert_config(self):
         config = {'one': '1', 'two': 'bla', 'three': 'false'}
         config = convert_config(config)
@@ -213,3 +219,15 @@ class TestUtil(unittest.TestCase):
         code, headers, body = get_url('http://error', get_body=False)
         self.assertEquals(code, 500)
         self.assertTrue('Error' in body)
+
+    def test_proxy(self):
+        class FakeRequest(object):
+            url = 'http://locahost'
+            method = 'GET'
+            body = ''
+            headers = {}
+            remote_addr = '192.168.1.1'
+
+        request = FakeRequest()
+        response = proxy(request, 'http', 'newplace')
+        self.assertEqual(response.body, 'http://newplace')

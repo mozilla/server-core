@@ -57,6 +57,7 @@ import logging
 import urllib2
 import socket
 import base64
+from urlparse import urlparse, urlunparse
 
 from webob.exc import HTTPServiceUnavailable, HTTPBadRequest
 from webob import Response
