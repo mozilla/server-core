@@ -467,27 +467,27 @@ def get_url(url, method='GET', data=None, user=None, password=None, timeout=5,
 
 
 def proxy(request, scheme, netloc, timeout=5):
-        """Proxies and return the result from the other server.
+    """Proxies and return the result from the other server.
 
-        - scheme: http or https
-        - netloc: proxy location
-        """
-        parsed = urlparse(request.url)
-        path = parsed.path
-        params = parsed.params
-        query = parsed.query
-        fragment = parsed.fragment
-        url = urlunparse((scheme, netloc, path, params, query, fragment))
-        method = request.method
-        data = request.body
-        if 'HTTP_X_FORWARDED_FOR' in request.headers:
-            forwarded = request.headers['HTTP_X_FORWARDED_FOR']
-        else:
-            forwarded = request.remote_addr
+    - scheme: http or https
+    - netloc: proxy location
+    """
+    parsed = urlparse(request.url)
+    path = parsed.path
+    params = parsed.params
+    query = parsed.query
+    fragment = parsed.fragment
+    url = urlunparse((scheme, netloc, path, params, query, fragment))
+    method = request.method
+    data = request.body
+    if 'HTTP_X_FORWARDED_FOR' in request.headers:
+        forwarded = request.headers['HTTP_X_FORWARDED_FOR']
+    else:
+        forwarded = request.remote_addr
 
-        xheaders = {'X-Forwarded-For': forwarded}
+    xheaders = {'X-Forwarded-For': forwarded}
 
-        status, headers, body = get_url(url, method, data, timeout=timeout,
-                                        extra_headers=xheaders)
+    status, headers, body = get_url(url, method, data, timeout=timeout,
+                                    extra_headers=xheaders)
 
-        return Response(body, status, headers.items())
+    return Response(body, status, headers.items())
