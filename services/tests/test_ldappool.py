@@ -35,6 +35,7 @@
 # ***** END LICENSE BLOCK *****
 import unittest
 import threading
+import time
 try:
     import ldap
     from services.auth.ldappool import (ConnectionPool, StateConnector,
@@ -143,13 +144,54 @@ class TestLDAPSQLAuth(unittest.TestCase):
             return
         dn = 'uid=adminuser,ou=logins,dc=mozilla'
         passwd = 'adminuser'
-        pool = ConnectionPool('ldap://localhost', dn, passwd, size=0)
+        pool = ConnectionPool('ldap://localhost', dn, passwd, size=1)
+
+        class Worker(threading.Thread):
+
+            def __init__(self, pool, duration):
+                threading.Thread.__init__(self)
+                self.pool = pool
+                self.duration = duration
+
+            def run(self):
+                with self.pool.connection() as conn:  # NOQA
+                    time.sleep(self.duration)
+
+
 
         def tryit():
             with pool.connection() as conn:  # NOQA
                 pass
 
-        self.assertRaises(MaxConnectionReachedError, tryit)
+        # an attempt on a full pool should eventually work
+        # because the connector is reused
+        for i in range(10):
+            tryit()
+
+        # we have 1 non-active connector now
+        self.assertEqual(len(pool), 1)
+
+        # an attempt with a full pool should succeed if a
+        # slot gets freed in less than one second.
+        worker1 = Worker(pool, .4)
+        worker1.start()
+
+        try:
+            tryit()
+        finally:
+            worker1.join()
+
+        # an attempt with a full pool should fail
+        # if no slot gets freed in less than one second.
+        worker1 = Worker(pool, 1.1)
+        worker1.start()
+        try:
+            self.assertRaises(MaxConnectionReachedError, tryit)
+        finally:
+            worker1.join()
+
+        # we still have one active connector
+        self.assertEqual(len(pool), 1)
 
     def test_pool_reuse(self):
         if not LDAP:

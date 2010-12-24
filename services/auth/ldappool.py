@@ -35,6 +35,7 @@
 # ***** END LICENSE BLOCK *****
 """ LDAP Connection Pool.
 """
+import time
 from contextlib import contextmanager
 from threading import RLock
 
@@ -82,6 +83,9 @@ class ConnectionPool(object):
         self._pool_lock = RLock()
         self.use_tls = False
         self.timeout = timeout
+
+    def __len__(self):
+        return len(self._pool)
 
     def _get_connection(self, bind=None, passwd=None):
         if bind is None:
@@ -131,7 +135,20 @@ class ConnectionPool(object):
 
     @contextmanager
     def connection(self, bind=None, passwd=None):
-        conn = self._get_connection(bind, passwd)
+        tries = 0
+        conn = None
+        while tries < 10:
+            try:
+                conn = self._get_connection(bind, passwd)
+            except MaxConnectionReachedError:
+                tries +=1
+                time.sleep(0.1)
+            else:
+                break
+
+        if conn is None:
+            raise MaxConnectionReachedError(self.uri)
+
         try:
             yield conn
         finally:
