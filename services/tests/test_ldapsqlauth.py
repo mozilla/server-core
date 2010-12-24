@@ -194,6 +194,7 @@ class TestLDAPSQLAuth(unittest.TestCase):
         uid = auth.get_user_id('tarek')
         auth_uid = auth.authenticate_user('tarek', 'tarek')
         self.assertEquals(auth_uid, uid)
+        self.assertTrue(auth.update_password(1, 'xxxx'))
 
     def _create_user(self, auth, user_name, password, email):
         from services.auth.ldapsql import *   # NOQA

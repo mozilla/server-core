@@ -399,7 +399,7 @@ class LDAPAuth(object):
         password_hash = ssha(password)
         user = [(ldap.MOD_REPLACE, 'userPassword', [password_hash])]
         user_name = self._get_username(user_id)
-        dn = self._get_dn(user_id)
+        dn = self._get_dn(user_name)
 
         with self._conn(self.admin_user, self.admin_password) as conn:
             try:
