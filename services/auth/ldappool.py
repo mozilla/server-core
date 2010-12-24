@@ -95,10 +95,11 @@ class ConnectionPool(object):
 
         with self._pool_lock:
             for conn in self._pool:
-                if not conn.active and (conn.who is None or conn.who == bind):
-                    # we found a connector for this bind, that can be used
-                    conn.active = True
-                    return conn
+                if not conn.active:
+                    if (conn.who is None or conn.who == bind):
+                        # we found a connector for this bind, that can be used
+                        conn.active = True
+                        return conn
 
         # the pool is full
         if len(self._pool) >= self.size:
@@ -137,12 +138,18 @@ class ConnectionPool(object):
     def connection(self, bind=None, passwd=None):
         tries = 0
         conn = None
-        while tries < 10:
+        while tries < self.retry_max:
             try:
                 conn = self._get_connection(bind, passwd)
             except MaxConnectionReachedError:
                 tries +=1
                 time.sleep(0.1)
+                # removing the first inactive connector
+                with self._pool_lock:
+                    for index, conn_ in enumerate(list(self._pool)):
+                        if not conn_.active:
+                            self._pool.pop(index)
+                            break
             else:
                 break
 

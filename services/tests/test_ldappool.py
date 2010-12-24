@@ -158,7 +158,6 @@ class TestLDAPSQLAuth(unittest.TestCase):
                     time.sleep(self.duration)
 
 
-
         def tryit():
             with pool.connection() as conn:  # NOQA
                 pass
@@ -191,6 +190,21 @@ class TestLDAPSQLAuth(unittest.TestCase):
             worker1.join()
 
         # we still have one active connector
+        self.assertEqual(len(pool), 1)
+
+    def test_pool_cleanup(self):
+        if not LDAP:
+            return
+        dn = 'uid=adminuser,ou=logins,dc=mozilla'
+        passwd = 'adminuser'
+        pool = ConnectionPool('ldap://localhost', dn, passwd, size=1)
+        with pool.connection('bind1') as conn:  # NOQA
+            pass
+
+        with pool.connection('bind2') as conn:  # NOQA
+            pass
+
+        # the second call should have removed the first conn
         self.assertEqual(len(pool), 1)
 
     def test_pool_reuse(self):
