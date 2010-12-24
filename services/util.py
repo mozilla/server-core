@@ -480,12 +480,16 @@ def proxy(request, scheme, netloc, timeout=5):
     url = urlunparse((scheme, netloc, path, params, query, fragment))
     method = request.method
     data = request.body
+    xheaders = dict(request.headers)
+
     if 'HTTP_X_FORWARDED_FOR' in request.headers:
         forwarded = request.headers['HTTP_X_FORWARDED_FOR']
     else:
         forwarded = request.remote_addr
 
-    xheaders = {'X-Forwarded-For': forwarded}
+    xheaders['X-Forwarded-For'] = forwarded
+    if hasattr(request, '_authorization'):
+        xheaders['Authorization'] = request._authorization
 
     status, headers, body = get_url(url, method, data, timeout=timeout,
                                     extra_headers=xheaders)

@@ -98,7 +98,7 @@ class TestUtil(unittest.TestCase):
             raise urllib2.HTTPError(url, 500, 'Error', {}, None)
         if url == 'http://newplace':
             res = FakeResult()
-            res.body = url
+            res.body = url + ' ' + req.headers['Authorization']
             return res
 
         raise ValueError(url)
@@ -227,7 +227,8 @@ class TestUtil(unittest.TestCase):
             body = ''
             headers = {}
             remote_addr = '192.168.1.1'
+            _authorization = 'Basic SomeToken'
 
         request = FakeRequest()
         response = proxy(request, 'http', 'newplace')
-        self.assertEqual(response.body, 'http://newplace')
+        self.assertEqual(response.body, 'http://newplace Basic SomeToken')

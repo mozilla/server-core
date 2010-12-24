@@ -117,5 +117,6 @@ class Authentication(object):
             # we also want to keep the password in clear text to reuse it
             # and remove it from the environ
             request.user_password = password
+            request._authorization = environ['HTTP_AUTHORIZATION']
             del environ['HTTP_AUTHORIZATION']
             return user_id
