@@ -480,7 +480,7 @@ def proxy(request, scheme, netloc, timeout=5):
     url = urlunparse((scheme, netloc, path, params, query, fragment))
     method = request.method
     data = request.body
-    xheaders = dict(request.headers)
+    xheaders = {}
 
     if 'HTTP_X_FORWARDED_FOR' in request.headers:
         forwarded = request.headers['HTTP_X_FORWARDED_FOR']

@@ -224,11 +224,12 @@ class TestUtil(unittest.TestCase):
         class FakeRequest(object):
             url = 'http://locahost'
             method = 'GET'
-            body = ''
-            headers = {}
+            body = 'xxx'
+            headers = {'Content-Length': 3}
             remote_addr = '192.168.1.1'
             _authorization = 'Basic SomeToken'
 
         request = FakeRequest()
         response = proxy(request, 'http', 'newplace')
+        self.assertEqual(response.content_length, 31)
         self.assertEqual(response.body, 'http://newplace Basic SomeToken')
