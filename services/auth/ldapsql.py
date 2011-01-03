@@ -50,6 +50,7 @@ from services.util import (generate_reset_code, check_reset_code, ssha,
                            BackendTimeoutError)
 from services.auth import NodeAttributionError
 from services.auth.ldappool import ConnectionPool
+from services import logger
 
 _Base = declarative_base()
 
@@ -160,6 +161,7 @@ class LDAPAuth(object):
                                       attrlist=['uid'],
                                       timeout=self.ldap_timeout)
             except ldap.TIMEOUT:
+                logger.debug('LDAP timeout')
                 raise BackendTimeoutError()
             except ldap.NO_SUCH_OBJECT:
                 return None
@@ -184,6 +186,7 @@ class LDAPAuth(object):
                                       attrlist=['uidNumber'],
                                       timeout=self.ldap_timeout)
             except ldap.TIMEOUT:
+                logger.debug('LDAP timeout')
                 raise BackendTimeoutError()
             except ldap.NO_SUCH_OBJECT:
                 return None
@@ -226,6 +229,7 @@ class LDAPAuth(object):
             try:
                 res, __ = conn.add_s(dn, user)
             except ldap.TIMEOUT:
+                logger.debug('LDAP timeout')
                 raise BackendTimeoutError()
 
         return res == ldap.RES_ADD
@@ -247,6 +251,7 @@ class LDAPAuth(object):
         except (ldap.NO_SUCH_OBJECT, ldap.INVALID_CREDENTIALS):
             return None
         except ldap.TIMEOUT:
+            logger.debug('LDAP timeout')
             raise BackendTimeoutError()
 
         if user is None:
@@ -281,6 +286,8 @@ class LDAPAuth(object):
         res = self._engine.execute(query)
 
         if res.rowcount != 1:
+            logger.debug('Unable to add a new reset code in the'
+                         ' reset_code table')
             return None  # XXX see if appropriate
 
         return code
@@ -354,6 +361,7 @@ class LDAPAuth(object):
                 res = conn.search_st(dn, scope, attrlist=['mail'],
                                      timeout=self.ldap_timeout)
             except ldap.TIMEOUT:
+                logger.debug('LDAP timeout')
                 raise BackendTimeoutError()
             except ldap.NO_SUCH_OBJECT:
                 return None, None
@@ -382,6 +390,7 @@ class LDAPAuth(object):
             try:
                 res, __ = conn.modify_s(dn, user)
             except ldap.TIMEOUT:
+                logger.debug('LDAP timeout')
                 raise BackendTimeoutError()
 
         return res == ldap.RES_MODIFY
@@ -405,6 +414,7 @@ class LDAPAuth(object):
             try:
                 res, __ = conn.modify_s(dn, user)
             except ldap.TIMEOUT:
+                logger.debug('LDAP timeout')
                 raise BackendTimeoutError()
 
         return res == ldap.RES_MODIFY
@@ -431,6 +441,7 @@ class LDAPAuth(object):
                 except ldap.NO_SUCH_OBJECT:
                     return False
                 except ldap.TIMEOUT:
+                    logger.debug('LDAP timeout')
                     raise BackendTimeoutError()
         except ldap.INVALID_CREDENTIALS:
             return False
@@ -451,6 +462,7 @@ class LDAPAuth(object):
                                      attrlist=['primaryNode'],
                                      timeout=self.ldap_timeout)
             except ldap.TIMEOUT:
+                logger.debug('LDAP timeout')
                 raise BackendTimeoutError()
 
         res = res[0][1]
@@ -472,6 +484,7 @@ class LDAPAuth(object):
         res = res.fetchone()
         if res is None:
             # unable to get a node
+            logger.debug('Unable to get a node for user id: %s' % str(user_id))
             raise NodeAttributionError(user_id)
 
         node = str(res.node)
@@ -486,10 +499,13 @@ class LDAPAuth(object):
             try:
                 ldap_res, __ = conn.modify_s(dn, user)
             except ldap.TIMEOUT:
+                logger.debug('LDAP timeout')
                 raise BackendTimeoutError()
 
         if ldap_res != ldap.RES_MODIFY:
             # unable to set the node in LDAP
+            logger.debug('Unable to set the newly attributed node in LDAP '
+                         'for %s' % str(user_id))
             raise NodeAttributionError(user_id)
 
         # node is set at this point
