@@ -36,20 +36,17 @@
 from ConfigParser import RawConfigParser
 import os
 from logging.config import fileConfig
+import logging
 
 from services.auth import ServicesAuth
 from services.util import convert_config
 import services
 
-_WEAVEDIR = os.path.dirname(services.__file__)
-_TOPDIR = os.path.split(_WEAVEDIR)[0]
-
 
 class TestEnv(object):
     """Class to try to establish the base environment for the tests"""
     def __init__(self, base):
-        _WEAVEDIR = os.path.dirname(base)
-        self._TOPDIR = os.path.split(_WEAVEDIR)[0]
+        self._TOPDIR = os.path.dirname(base)
 
         if 'WEAVE_TESTFILE' in os.environ:
             test_filename = 'tests_%s.ini' % os.environ['WEAVE_TESTFILE']

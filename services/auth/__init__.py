@@ -167,7 +167,7 @@ class ServicesAuth(PluginRegistry):
         """
 
     @abc.abstractmethod
-    def get_user_node(self, user_id):
+    def get_user_node(self, user_id, assign=True):
         """Returns the node of the user.
 
         This method is also responsible to initialize the user's node
