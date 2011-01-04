@@ -177,6 +177,9 @@ class TestLDAPSQLAuth(unittest.TestCase):
         # node3 is full now. Next user should be on node1
         auth.create_user('tarek2', 'tarek2', 'tarek@ziade.org')
         uid = auth.get_user_id('tarek2')
+
+        # make sure we don't get a node if we ask not to give a new one
+        self.assertEquals(auth.get_user_node(uid, False), None)
         self.assertEquals(auth.get_user_node(uid), 'https://node1/')
 
     def test_md5_dn(self):

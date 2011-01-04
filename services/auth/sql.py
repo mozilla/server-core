@@ -255,7 +255,7 @@ class SQLAuth(object):
         res = self._engine.execute(query)
         return res.rowcount == 1
 
-    def get_user_node(self, user_id):
+    def get_user_node(self, user_id, assign=True):
         """Returns the node of the user"""
         # the sql auth backend does not handle nodes.
         return None

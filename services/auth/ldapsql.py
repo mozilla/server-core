@@ -448,7 +448,7 @@ class LDAPAuth(object):
 
         return res == ldap.RES_DELETE
 
-    def get_user_node(self, user_id):
+    def get_user_node(self, user_id, assign=True):
         if self.single_box:
             return None
 
@@ -473,6 +473,9 @@ class LDAPAuth(object):
                 continue
             # we want to return the URL
             return '%s://%s/' % (self.nodes_scheme, node)
+
+        if not assign:
+            return None
 
         # the user don't have a node yet, let's pick the most bored node
         where = and_(available_nodes.c.available_assignments > 0,
