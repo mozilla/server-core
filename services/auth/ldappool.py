@@ -114,10 +114,18 @@ class ConnectionPool(object):
             conn.start_tls_s()
 
         if bind is not None:
-            try:
-                conn.simple_bind_s(bind, passwd)
-            except ldap.TIMEOUT:
-                raise BackendTimeoutError()
+            tries = 0
+            while tries < self.retry_max:
+                try:
+                    conn.simple_bind_s(bind, passwd)
+                except ldap.TIMEOUT:
+                    raise BackendTimeoutError()
+                except ldap.SERVER_DOWN:
+                    time.sleep(self.retry_delay)
+                    tries += 1
+                else:
+                    # we're good
+                    break
 
         conn.active = True
         with self._pool_lock:
