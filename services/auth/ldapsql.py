@@ -372,7 +372,7 @@ class LDAPAuth(object):
         res = res[0][1]
         return user_id, res['mail'][0]
 
-    def update_email(self, user_id, email):
+    def update_email(self, user_id, email, password=None):
         """Change the user e-mail
 
         Args:
@@ -382,11 +382,14 @@ class LDAPAuth(object):
         Returns:
             True if the change was successful, False otherwise
         """
+        if password is None:
+            return False   # we need a password
+
         user = [(ldap.MOD_REPLACE, 'mail', [email])]
         user_name = self._get_username(user_id)
         dn = self._get_dn(user_name)
 
-        with self._conn(self.admin_user, self.admin_password) as conn:
+        with self._conn(dn, password) as conn:
             try:
                 res, __ = conn.modify_s(dn, user)
             except ldap.TIMEOUT:
@@ -395,7 +398,7 @@ class LDAPAuth(object):
 
         return res == ldap.RES_MODIFY
 
-    def update_password(self, user_id, password):
+    def update_password(self, user_id, password, old_password=None):
         """Change the user password
 
         Args:
@@ -405,12 +408,15 @@ class LDAPAuth(object):
         Returns:
             True if the change was successful, False otherwise
         """
+        if old_password is None:
+            return False   # we need a password
+
         password_hash = ssha(password)
         user = [(ldap.MOD_REPLACE, 'userPassword', [password_hash])]
         user_name = self._get_username(user_id)
         dn = self._get_dn(user_name)
 
-        with self._conn(self.admin_user, self.admin_password) as conn:
+        with self._conn(dn, old_password) as conn:
             try:
                 res, __ = conn.modify_s(dn, user)
             except ldap.TIMEOUT:

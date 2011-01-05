@@ -212,7 +212,7 @@ class SQLAuth(object):
 
         return res.username, res.email
 
-    def update_email(self, user_id, email):
+    def update_email(self, user_id, email, password=None):
         """Change the user e-mail
 
         Args:
@@ -226,7 +226,7 @@ class SQLAuth(object):
         res = self._engine.execute(query.values(email=email))
         return res.rowcount == 1
 
-    def update_password(self, user_id, password):
+    def update_password(self, user_id, password, old_password=None):
         """Change the user password
 
         Args:

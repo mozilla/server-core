@@ -135,7 +135,7 @@ class TestLDAPSQLAuth(unittest.TestCase):
         self.assertFalse(auth.verify_reset_code(uid, code))
 
         # e-mail update
-        auth.update_email(uid, 'new@email.com')
+        self.assertTrue(auth.update_email(uid, 'new@email.com', 'tarek'))
         name, email = auth.get_user_info(uid)
         self.assertEquals(email, 'new@email.com')
 
@@ -197,7 +197,7 @@ class TestLDAPSQLAuth(unittest.TestCase):
         uid = auth.get_user_id('tarek')
         auth_uid = auth.authenticate_user('tarek', 'tarek')
         self.assertEquals(auth_uid, uid)
-        self.assertTrue(auth.update_password(1, 'xxxx'))
+        self.assertTrue(auth.update_password(1, 'xxxx', 'tarek'))
 
     def _create_user(self, auth, user_name, password, email):
         from services.auth.ldapsql import *   # NOQA
