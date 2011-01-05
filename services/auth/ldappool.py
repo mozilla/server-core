@@ -71,7 +71,7 @@ class ConnectionPool(object):
     """LDAP Connector pool.
     """
 
-    def __init__(self, uri, bind=None, passwd=None, size=100, retry_max=10,
+    def __init__(self, uri, bind=None, passwd=None, size=10, retry_max=10,
                  retry_delay=1., use_tls=False, single_box=False, timeout=-1):
         self._pool = []
         self.size = size
@@ -115,7 +115,8 @@ class ConnectionPool(object):
 
         if bind is not None:
             tries = 0
-            while tries < self.retry_max:
+            connected = False
+            while tries < self.retry_max and not connected:
                 try:
                     conn.simple_bind_s(bind, passwd)
                 except ldap.TIMEOUT:
@@ -125,7 +126,10 @@ class ConnectionPool(object):
                     tries += 1
                 else:
                     # we're good
-                    break
+                    connected = True
+
+            if not connected:
+                raise BackendTimeoutError()
 
         conn.active = True
         with self._pool_lock:
