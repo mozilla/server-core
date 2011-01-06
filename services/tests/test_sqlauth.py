@@ -43,7 +43,7 @@ from sqlalchemy.exc import OperationalError
 from services.tests.support import initenv
 from services.auth.sql import SQLAuth
 from services.auth import ServicesAuth
-from services.util import ssha
+from services.util import ssha, BackendError
 
 ServicesAuth.register(SQLAuth)
 
@@ -116,8 +116,8 @@ class TestSQLAuth(unittest.TestCase):
         appdir, config, auth = initenv(conf)
 
         # this should fail because the table is absent
-        self.assertRaises(OperationalError, auth.authenticate_user,
-                         'tarek', 'tarek')
+        self.assertRaises(BackendError, auth.authenticate_user,
+                          'tarek', 'tarek')
 
 
 def test_suite():

@@ -44,7 +44,8 @@ from sqlalchemy.interfaces import PoolListener
 from sqlalchemy.sql import bindparam, select, insert, update, delete
 
 from services.util import (validate_password, ssha256, check_reset_code,
-                             generate_reset_code)
+                           generate_reset_code, safe_execute)
+
 # sharing the same table than the sql storage
 from services.auth.sqlmappers import users
 
@@ -98,7 +99,8 @@ class SQLAuth(object):
 
     def get_user_id(self, user_name):
         """Returns the id for a user name"""
-        user = self._engine.execute(_USER_ID, user_name=user_name).fetchone()
+        user = safe_execute(self._engine, _USER_ID,
+                            user_name=user_name).fetchone()
         if user is None:
             return None
         return user.id
@@ -108,15 +110,15 @@ class SQLAuth(object):
         password_hash = ssha256(password)
         query = insert(users).values(username=user_name, email=email,
                                      password_hash=password_hash, status=1)
-        res = self._engine.execute(query)
+        res = safe_execute(self._engine, query)
         return res.rowcount == 1
 
     def authenticate_user(self, user_name, password):
         """Authenticates a user given a user_name and password.
 
         Returns the user id in case of success. Returns None otherwise."""
-        user = self._engine.execute(_USER_AUTH,
-                                    user_name=user_name).fetchone()
+        user = safe_execute(self._engine, _USER_AUTH,
+                            user_name=user_name).fetchone()
         if user is None:
             return None
 
@@ -138,7 +140,7 @@ class SQLAuth(object):
         """
         code, expiration = generate_reset_code()
         query = update(users).values(reset=code, reset_expiration=expiration)
-        res = self._engine.execute(query.where(users.c.id == user_id))
+        res = safe_execute(self._engine, query.where(users.c.id == user_id))
 
         if res.rowcount != 1:
             return None  # XXX see if appropriate
@@ -158,7 +160,7 @@ class SQLAuth(object):
         if not check_reset_code(code):
             return False
 
-        res = self._engine.execute(_USER_RESET_CODE, user_id=user_id)
+        res = safe_execute(self._engine, _USER_RESET_CODE, user_id=user_id)
         user = res.fetchone()
 
         if user.reset is None or user.reset_expiration is None:
@@ -193,8 +195,8 @@ class SQLAuth(object):
         """
         query = update(users).where(users.c.id == user_id)
         code = expiration = None
-        res = self._engine.execute(query.values(id=user_id, reset=code,
-                                                reset_expiration=expiration))
+        res = safe_execute(self._engine, query.values(id=user_id, reset=code,
+                           reset_expiration=expiration))
         return res.rowcount == 1
 
     def get_user_info(self, user_id):
@@ -206,7 +208,8 @@ class SQLAuth(object):
         Returns:
             tuple: username, email
         """
-        res = self._engine.execute(_USER_INFO, user_id=user_id).fetchone()
+        res = safe_execute(self._engine, _USER_INFO,
+                           user_id=user_id).fetchone()
         if res is None:
             return None, None
 
@@ -223,7 +226,7 @@ class SQLAuth(object):
             True if the change was successful, False otherwise
         """
         query = update(users).where(users.c.id == user_id)
-        res = self._engine.execute(query.values(email=email))
+        res = safe_execute(self._engine, query.values(email=email))
         return res.rowcount == 1
 
     def update_password(self, user_id, password, old_password=None):
@@ -238,7 +241,8 @@ class SQLAuth(object):
         """
         password_hash = ssha256(password)
         query = update(users).where(users.c.id == user_id)
-        res = self._engine.execute(query.values(password_hash=password_hash))
+        res = safe_execute(self._engine,
+                           query.values(password_hash=password_hash))
         return res.rowcount == 1
 
     def delete_user(self, user_id, password=None):
@@ -252,7 +256,7 @@ class SQLAuth(object):
             True if the deletion was successful, False otherwise
         """
         query = delete(users).where(users.c.id == user_id)
-        res = self._engine.execute(query)
+        res = safe_execute(self._engine, query)
         return res.rowcount == 1
 
     def get_user_node(self, user_id, assign=True):

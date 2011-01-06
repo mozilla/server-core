@@ -37,6 +37,7 @@
 Application entry point.
 """
 import time
+import traceback
 
 from paste.translogger import TransLogger
 from paste.exceptions.errormiddleware import ErrorMiddleware
@@ -44,10 +45,12 @@ from paste.exceptions.errormiddleware import ErrorMiddleware
 from routes import Mapper
 
 from webob.dec import wsgify
-from webob.exc import HTTPNotFound, HTTPBadRequest
+from webob.exc import HTTPNotFound, HTTPBadRequest, HTTPServiceUnavailable
 from webob import Response
 
-from services.util import convert_config, CatchErrorMiddleware
+from services.util import (convert_config, CatchErrorMiddleware,
+                           BackendTimeoutError)
+from services import logger
 from services.wsgiauth import Authentication
 
 
@@ -157,7 +160,12 @@ class SyncServerApp(object):
         else:
             params = {}
 
-        result = function(request, **params)
+        try:
+            result = function(request, **params)
+        except BackendTimeoutError:
+            err = traceback.format_exc()
+            logger.error(err)
+            raise HTTPServiceUnavailable()
 
         if isinstance(result, basestring):
             response = Response(result)

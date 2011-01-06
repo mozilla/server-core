@@ -62,7 +62,10 @@ from urlparse import urlparse, urlunparse
 from webob.exc import HTTPServiceUnavailable, HTTPBadRequest
 from webob import Response
 
+from sqlalchemy.exc import OperationalError
+
 from services.config import Config, convert
+from services import logger
 
 
 random.seed()
@@ -326,7 +329,12 @@ def batch(iterable, size=100):
         yield group
 
 
-class BackendTimeoutError(Exception):
+class BackendError(Exception):
+    """Raised when the backend is down or fails"""
+    pass
+
+
+class BackendTimeoutError(BackendError):
     """Raised when the backend times out."""
     pass
 
@@ -495,3 +503,15 @@ def proxy(request, scheme, netloc, timeout=5):
                                     extra_headers=xheaders)
 
     return Response(body, status, headers.items())
+
+
+def safe_execute(engine, *args, **kwargs):
+    """Execution wrapper that will raise a HTTPServiceUnavailableError
+    on any OperationalError errors and log it.
+    """
+    try:
+        return engine.execute(*args, **kwargs)
+    except OperationalError:
+        err = traceback.format_exc()
+        logger.error(err)
+        raise BackendError()
