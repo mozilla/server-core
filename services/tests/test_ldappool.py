@@ -232,3 +232,27 @@ class TestLDAPSQLAuth(unittest.TestCase):
             pass
 
         self.assertTrue(conn is not conn2)
+
+        # same bind and password: reuse
+        with pool.connection('bind', 'passwd') as conn:
+            self.assertTrue(conn.active)
+
+        self.assertFalse(conn.active)
+        self.assertTrue(conn.connected)
+
+        with pool.connection('bind', 'passwd') as conn2:
+            pass
+
+        self.assertTrue(conn is conn2)
+
+        # same bind different password: discard
+        with pool.connection('bind', 'passwd') as conn:
+            self.assertTrue(conn.active)
+
+        self.assertFalse(conn.active)
+        self.assertTrue(conn.connected)
+
+        with pool.connection('bind', 'passwd2') as conn2:
+            pass
+
+        self.assertTrue(conn is not conn2)

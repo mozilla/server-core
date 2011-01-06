@@ -58,12 +58,14 @@ class StateConnector(ReconnectLDAPObject):
                                                 clientctrls)
         self.connected = True
         self.who = who
+        self.cred = cred
         return res
 
     def unbind_ext_s(self, serverctrls=None, clientctrls=None):
         res = ReconnectLDAPObject.unbind_ext_s(self, serverctrls, clientctrls)
         self.connected = False
         self.who = None
+        self.cred = None
         return res
 
 
@@ -96,7 +98,8 @@ class ConnectionPool(object):
         with self._pool_lock:
             for conn in self._pool:
                 if not conn.active:
-                    if (conn.who is None or conn.who == bind):
+                    if (conn.who is None or
+                        (conn.who == bind and conn.cred == passwd)):
                         # we found a connector for this bind, that can be used
                         conn.active = True
                         return conn
