@@ -73,7 +73,7 @@ class SetTextFactory(PoolListener):
 class SQLAuth(object):
     """SQL authentication."""
 
-    def __init__(self, sqluri=_SQLURI, pool_size=20, pool_recycle=3600,
+    def __init__(self, sqluri=_SQLURI, pool_size=20, pool_recycle=60,
                  create_tables=True, **kw):
         sqlkw = {'pool_size': int(pool_size),
                  'pool_recycle': int(pool_recycle),
