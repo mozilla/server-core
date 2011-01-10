@@ -78,6 +78,8 @@ import socket
 from time import strftime
 import re
 from services import logger
+from services.util import get_source_ip
+
 
 _HOST = socket.gethostname()
 
@@ -174,11 +176,7 @@ def log_failure(message, severity, environ, config, signature=AUTH_FAILURE,
     severity = _convert(severity)
     config = filter_params('cef', config)
 
-    source = None
-    for header in ('HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'):
-        if header in environ:
-            source = environ[header]
-            break
+    source = get_source_ip(environ)
 
     fields = {'severity': severity,
               'source': source,
