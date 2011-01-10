@@ -55,9 +55,10 @@ if LDAP:
                                                     'mail': ['admin'],
                                                     'uidNumber': ['100']}}
 
-    def _simple_bind(self, who, *args):
+    def _simple_bind(self, who='', cred='', *args):
         self.connected = True
         self.who = who
+        self.cred = cred
 
     StateConnector.simple_bind_s = _simple_bind
 
