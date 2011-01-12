@@ -520,7 +520,7 @@ def safe_execute(engine, *args, **kwargs):
 def get_source_ip(environ):
     """Extracts the source IP from the environ."""
     if 'HTTP_X_FORWARDED_FOR' in environ:
-        return environ[header].split(',')[0].strip()
+        return environ['HTTP_X_FORWARDED_FOR'].split(',')[0].strip()
     elif 'REMOTE_ADDR' in environ:
         return environ['REMOTE_ADDR']
     return None

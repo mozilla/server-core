@@ -47,7 +47,8 @@ from services.util import (convert_config, bigint2time,
                            validate_password, ssha, ssha256,
                            valid_password, json_response,
                            newlines_response, whoisi_response, text_response,
-                           extract_username, get_url, proxy)
+                           extract_username, get_url, proxy,
+                           get_source_ip)
 
 
 _EXTRA = """\
@@ -233,3 +234,14 @@ class TestUtil(unittest.TestCase):
         response = proxy(request, 'http', 'newplace')
         self.assertEqual(response.content_length, 31)
         self.assertEqual(response.body, 'http://newplace Basic SomeToken')
+
+    def test_get_source_ip(self):
+        environ = {'HTTP_X_FORWARDED_FOR': 'one'}
+        environ2 = {'REMOTE_ADDR': 'two'}
+        environ3 = {'HTTP_X_FORWARDED_FOR': 'three, four,five',
+                    'REMOTE_ADDR': 'no'}
+        environ4 = {}
+        self.assertEqual(get_source_ip(environ), 'one')
+        self.assertEqual(get_source_ip(environ2), 'two')
+        self.assertEqual(get_source_ip(environ3), 'three')
+        self.assertEqual(get_source_ip(environ4), None)
