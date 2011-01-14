@@ -80,12 +80,6 @@ class TestEnv(object):
                       cfg.items('DEFAULT') + cfg.items('app:main')])
         self.config = convert_config(config)
 
-    def topdir(self):
-        return self.topdir
-
-    def config(self):
-        return self.config
-
 
 # non-class way of doing this
 def initenv(config=None):
