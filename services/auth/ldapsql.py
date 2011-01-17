@@ -47,7 +47,7 @@ from sqlalchemy import create_engine, SmallInteger
 from sqlalchemy.sql import bindparam, select, insert, delete, update, and_
 
 from services.util import (generate_reset_code, check_reset_code, ssha,
-                           BackendTimeoutError)
+                           BackendError)
 from services.auth import NodeAttributionError
 from services.auth.ldappool import ConnectionPool
 from services import logger
@@ -160,9 +160,9 @@ class LDAPAuth(object):
                 user = conn.search_st(dn, scope, filterstr=filter,
                                       attrlist=['uid'],
                                       timeout=self.ldap_timeout)
-            except ldap.TIMEOUT:
-                logger.debug('LDAP timeout')
-                raise BackendTimeoutError()
+            except (ldap.TIMEOUT, ldap.SERVER_DOWN, ldap.OTHER), e:
+                logger.debug('Could not get the user info from ldap')
+                raise BackendError(str(e))
             except ldap.NO_SUCH_OBJECT:
                 return None
 
@@ -185,9 +185,9 @@ class LDAPAuth(object):
                 user = conn.search_st(dn, scope, filterstr=filter,
                                       attrlist=['uidNumber'],
                                       timeout=self.ldap_timeout)
-            except ldap.TIMEOUT:
-                logger.debug('LDAP timeout')
-                raise BackendTimeoutError()
+            except (ldap.TIMEOUT, ldap.ERROR, ldap.OTHER), e:
+                logger.debug('Could not get the user id from ldap.')
+                raise BackendError(str(e))
             except ldap.NO_SUCH_OBJECT:
                 return None
 
@@ -228,9 +228,9 @@ class LDAPAuth(object):
         with self._conn(self.admin_user, self.admin_password) as conn:
             try:
                 res, __ = conn.add_s(dn, user)
-            except ldap.TIMEOUT:
-                logger.debug('LDAP timeout')
-                raise BackendTimeoutError()
+            except (ldap.TIMEOUT, ldap.SERVER_DOWN, ldap.OTHER), e:
+                logger.debug('Could not create the user.')
+                raise BackendError(str(e))
 
         return res == ldap.RES_ADD
 
@@ -250,9 +250,9 @@ class LDAPAuth(object):
                                       timeout=self.ldap_timeout)
         except (ldap.NO_SUCH_OBJECT, ldap.INVALID_CREDENTIALS):
             return None
-        except ldap.TIMEOUT:
-            logger.debug('LDAP timeout')
-            raise BackendTimeoutError()
+        except (ldap.TIMEOUT, ldap.SERVER_DOWN, ldap.OTHER), e:
+            logger.debug('Could not authenticate the user.')
+            raise BackendError(str(e))
 
         if user is None:
             return None
@@ -360,9 +360,9 @@ class LDAPAuth(object):
             try:
                 res = conn.search_st(dn, scope, attrlist=['mail'],
                                      timeout=self.ldap_timeout)
-            except ldap.TIMEOUT:
-                logger.debug('LDAP timeout')
-                raise BackendTimeoutError()
+            except (ldap.TIMEOUT, ldap.SERVER_DOWN, ldap.OTHER), e:
+                logger.debug('Could not get the user info in ldap.')
+                raise BackendError(str(e))
             except ldap.NO_SUCH_OBJECT:
                 return None, None
 
@@ -392,9 +392,9 @@ class LDAPAuth(object):
         with self._conn(dn, password) as conn:
             try:
                 res, __ = conn.modify_s(dn, user)
-            except ldap.TIMEOUT:
-                logger.debug('LDAP timeout')
-                raise BackendTimeoutError()
+            except (ldap.TIMEOUT, ldap.SERVER_DOWN, ldap.OTHER), e:
+                logger.debug('Could not update the email field in ldap.')
+                raise BackendError(str(e))
 
         return res == ldap.RES_MODIFY
 
@@ -419,9 +419,9 @@ class LDAPAuth(object):
         with self._conn(dn, old_password) as conn:
             try:
                 res, __ = conn.modify_s(dn, user)
-            except ldap.TIMEOUT:
-                logger.debug('LDAP timeout')
-                raise BackendTimeoutError()
+            except (ldap.TIMEOUT, ldap.SERVER_DOWN, ldap.OTHER), e:
+                logger.debug('Could not update the password in ldap.')
+                raise BackendError(str(e))
 
         return res == ldap.RES_MODIFY
 
@@ -446,9 +446,9 @@ class LDAPAuth(object):
                     res, __ = conn.delete_s(dn)
                 except ldap.NO_SUCH_OBJECT:
                     return False
-                except ldap.TIMEOUT:
-                    logger.debug('LDAP timeout')
-                    raise BackendTimeoutError()
+                except (ldap.TIMEOUT, ldap.SERVER_DOWN, ldap.OTHER), e:
+                    logger.debug('Could not delete the user in ldap')
+                    raise BackendError(str(e))
         except ldap.INVALID_CREDENTIALS:
             return False
 
@@ -467,9 +467,9 @@ class LDAPAuth(object):
                 res = conn.search_st(dn, ldap.SCOPE_BASE,
                                      attrlist=['primaryNode'],
                                      timeout=self.ldap_timeout)
-            except ldap.TIMEOUT:
-                logger.debug('LDAP timeout')
-                raise BackendTimeoutError()
+            except (ldap.TIMEOUT, ldap.SERVER_DOWN, ldap.OTHER), e:
+                logger.debug('Could not get the user node in ldap')
+                raise BackendError(str(e))
 
         res = res[0][1]
 
@@ -507,9 +507,9 @@ class LDAPAuth(object):
         with self._conn(self.admin_user, self.admin_password) as conn:
             try:
                 ldap_res, __ = conn.modify_s(dn, user)
-            except ldap.TIMEOUT:
-                logger.debug('LDAP timeout')
-                raise BackendTimeoutError()
+            except (ldap.TIMEOUT, ldap.SERVER_DOWN, ldap.OTHER), e:
+                logger.debug('Could not update the server node in LDAP')
+                raise BackendError(str(e))
 
         if ldap_res != ldap.RES_MODIFY:
             # unable to set the node in LDAP

@@ -145,7 +145,8 @@ class TestLDAPSQLAuth(unittest.TestCase):
             return
         dn = 'uid=adminuser,ou=logins,dc=mozilla'
         passwd = 'adminuser'
-        pool = ConnectionPool('ldap://localhost', dn, passwd, size=1)
+        pool = ConnectionPool('ldap://localhost', dn, passwd, size=1,
+                              retry_delay=1., retry_max=5)
 
         class Worker(threading.Thread):
 

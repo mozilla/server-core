@@ -68,13 +68,19 @@ class StateConnector(ReconnectLDAPObject):
         self.cred = None
         return res
 
+    def add_s(self,*args,**kwargs):
+        return self._apply_method_s(ReconnectLDAPObject.add_s,*args,**kwargs)
+
+    def modify_s(self,*args,**kwargs):
+        return self._apply_method_s(ReconnectLDAPObject.modify_s,*args,**kwargs)
+
 
 class ConnectionPool(object):
     """LDAP Connector pool.
     """
 
-    def __init__(self, uri, bind=None, passwd=None, size=10, retry_max=10,
-                 retry_delay=1., use_tls=False, single_box=False, timeout=-1):
+    def __init__(self, uri, bind=None, passwd=None, size=10, retry_max=3,
+                 retry_delay=.1, use_tls=False, single_box=False, timeout=-1):
         self._pool = []
         self.size = size
         self.retry_max = retry_max
@@ -119,12 +125,13 @@ class ConnectionPool(object):
         if bind is not None:
             tries = 0
             connected = False
+            e = None
             while tries < self.retry_max and not connected:
                 try:
                     conn.simple_bind_s(bind, passwd)
-                except ldap.TIMEOUT:
-                    raise BackendTimeoutError()
-                except ldap.SERVER_DOWN:
+                except ldap.TIMEOUT, e:
+                    raise BackendTimeoutError(str(e))
+                except (ldap.SERVER_DOWN, ldap.OTHER), e:
                     time.sleep(self.retry_delay)
                     tries += 1
                 else:
@@ -132,7 +139,7 @@ class ConnectionPool(object):
                     connected = True
 
             if not connected:
-                raise BackendTimeoutError()
+                raise BackendError(str(e))
 
         conn.active = True
         with self._pool_lock:

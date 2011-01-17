@@ -37,7 +37,8 @@ import unittest
 import base64
 
 from services.baseapp import SyncServerApp
-from webob.exc import HTTPUnauthorized
+from services.util import BackendError
+from webob.exc import HTTPUnauthorized, HTTPServiceUnavailable
 
 
 class _Request(object):
@@ -59,6 +60,9 @@ class _Foo(object):
 
     def secret(self, request):
         return 'here'
+
+    def boom(self, request):
+        raise BackendError()
 
 
 class TestBaseApp(unittest.TestCase):
@@ -96,6 +100,20 @@ class TestBaseApp(unittest.TestCase):
         request.environ['HTTP_AUTHORIZATION'] = auth
         res = self.app(request)
         self.assertEqual(res.body, 'here')
+
+    def test_retry_after(self):
+        config = {'global.retry_after': 60,
+                  'auth.backend': 'dummy'}
+        urls = [('GET', '/boom', 'foo', 'boom')]
+        controllers = {'foo': _Foo}
+        app = SyncServerApp(urls, controllers, config)
+        request = _Request('GET', '/boom', 'localhost')
+        try:
+            app(request)
+        except HTTPServiceUnavailable, error:
+            self.assertEqual(error.headers['Retry-After'], '60')
+        else:
+            raise AssertionError()
 
 
 def test_suite():

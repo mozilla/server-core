@@ -49,7 +49,7 @@ from webob.exc import HTTPNotFound, HTTPBadRequest, HTTPServiceUnavailable
 from webob import Response
 
 from services.util import (convert_config, CatchErrorMiddleware,
-                           BackendTimeoutError)
+                           BackendError)
 from services import logger
 from services.wsgiauth import Authentication
 
@@ -66,6 +66,9 @@ class SyncServerApp(object):
             self.config = config
         else:
             self.config = {}
+
+        # global config
+        self.retry_after = self.config.get('global.retry_after', 1800)
 
         # loading the authentication tool
         self.auth = auth_class(self.config)
@@ -162,10 +165,10 @@ class SyncServerApp(object):
 
         try:
             result = function(request, **params)
-        except BackendTimeoutError:
+        except BackendError:
             err = traceback.format_exc()
             logger.error(err)
-            raise HTTPServiceUnavailable()
+            raise HTTPServiceUnavailable(retry_after=self.retry_after)
 
         if isinstance(result, basestring):
             response = Response(result)
