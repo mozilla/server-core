@@ -240,3 +240,11 @@ class TestLDAPSQLAuth(unittest.TestCase):
         self._create_user(auth, 'tarek', 'tarek', 'tarek@ziade.org')
         uid = auth.authenticate_user('tarek', 'tarek')
         self.assertTrue(uid is not None)
+
+    def test_ldap_pool_size(self):
+        if not LDAP:
+            return
+        auth = LDAPAuth('ldap://localhost', 'sqlite:///:memory:',
+                        ldap_pool_size=5)
+
+        self.assertEqual(auth.pool.size, 5)

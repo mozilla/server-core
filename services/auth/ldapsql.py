@@ -100,7 +100,7 @@ class LDAPAuth(object):
                  users_base_dn=None, pool_size=100, pool_recycle=3600,
                  reset_on_return=True, single_box=False, ldap_timeout=-1,
                  nodes_scheme='https', check_account_state=True,
-                 create_tables=True, **kw):
+                 create_tables=True, ldap_pool_size=10, **kw):
         self.check_account_state = check_account_state
         self.ldapuri = ldapuri
         self.sqluri = sqluri
@@ -116,7 +116,8 @@ class LDAPAuth(object):
         self.ldap_timeout = ldap_timeout
         # by default, the ldap connections use the bind user
         self.pool = ConnectionPool(ldapuri, bind_user, bind_password,
-                                   use_tls=use_tls, timeout=ldap_timeout)
+                                   use_tls=use_tls, timeout=ldap_timeout,
+                                   size=ldap_pool_size)
         sqlkw = {'pool_size': int(pool_size),
                  'pool_recycle': int(pool_recycle),
                  'logging_name': 'weaveserver'}
