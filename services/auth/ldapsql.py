@@ -400,26 +400,37 @@ class LDAPAuth(object):
         return res == ldap.RES_MODIFY
 
     def update_password(self, user_id, password, old_password=None):
-        """Change the user password
+        """Change the user password.
+
+        Uses the admin bind or the user bind if the old password is provided.
 
         Args:
             user_id: user id
             password: new password
+            old_password: old password of the user (optional)
 
         Returns:
             True if the change was successful, False otherwise
         """
+        user_name = self._get_username(user_id)
+        user_dn = self._get_dn(user_name)
+
         if old_password is None:
-            return False   # we need a password
+            # we will use admin auth
+            dn = self.admin_user
+            ldap_password = self.admin_password
+        else:
+            # user auth
+            dn = user_dn
+            ldap_password = old_password
+            # we need a password
 
         password_hash = ssha(password)
         user = [(ldap.MOD_REPLACE, 'userPassword', [password_hash])]
-        user_name = self._get_username(user_id)
-        dn = self._get_dn(user_name)
 
-        with self._conn(dn, old_password) as conn:
+        with self._conn(dn, ldap_password) as conn:
             try:
-                res, __ = conn.modify_s(dn, user)
+                res, __ = conn.modify_s(user_dn, user)
             except (ldap.TIMEOUT, ldap.SERVER_DOWN, ldap.OTHER), e:
                 logger.debug('Could not update the password in ldap.')
                 raise BackendError(str(e))

@@ -100,6 +100,12 @@ class TestUtil(unittest.TestCase):
             res = FakeResult()
             res.body = url + ' ' + req.headers['Authorization']
             return res
+        if url == 'http://xheaders':
+            res = FakeResult()
+            headers = req.headers.items()
+            headers.sort()
+            res.body = str(headers)
+            return res
 
         raise ValueError(url)
 
@@ -234,7 +240,8 @@ class TestUtil(unittest.TestCase):
             url = 'http://locahost'
             method = 'GET'
             body = 'xxx'
-            headers = {'Content-Length': 3}
+            headers = {'Content-Length': 3, 'X-Me-This': 1,
+                       'X-Me-That': 2}
             remote_addr = '192.168.1.1'
             _authorization = 'Basic SomeToken'
 
@@ -242,6 +249,12 @@ class TestUtil(unittest.TestCase):
         response = proxy(request, 'http', 'newplace')
         self.assertEqual(response.content_length, 31)
         self.assertEqual(response.body, 'http://newplace Basic SomeToken')
+
+        # we want to make sure that X- headers are proxied
+        request = FakeRequest()
+        response = proxy(request, 'http', 'xheaders')
+        self.assertTrue("('X-me-that', 2), ('X-me-this', 1)" in response.body)
+        self.assertTrue("X-forwarded-for" in response.body)
 
     def test_get_source_ip(self):
         environ = {'HTTP_X_FORWARDED_FOR': 'one'}

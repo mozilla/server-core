@@ -499,14 +499,17 @@ def proxy(request, scheme, netloc, timeout=5):
     url = urlunparse((scheme, netloc, path, params, query, fragment))
     method = request.method
     data = request.body
+
+    # copying all X- headers
     xheaders = {}
+    for header, value in request.headers.items():
+        if not header.startswith('X-'):
+            continue
+        xheaders[header] = value
 
-    if 'HTTP_X_FORWARDED_FOR' in request.headers:
-        forwarded = request.headers['HTTP_X_FORWARDED_FOR']
-    else:
-        forwarded = request.remote_addr
+    if 'X-Forwarded-For' not in request.headers:
+        xheaders['X-Forwarded-For'] = request.remote_addr
 
-    xheaders['X-Forwarded-For'] = forwarded
     if hasattr(request, '_authorization'):
         xheaders['Authorization'] = request._authorization
 
