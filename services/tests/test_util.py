@@ -33,14 +33,13 @@
 # the terms of any one of the MPL, the GPL or the LGPL.
 #
 # ***** END LICENSE BLOCK *****
+# -*- coding: utf-8 -*-
 import unittest
 import time
 import tempfile
 import os
 import urllib2
 import socket
-
-from webob.exc import HTTPServiceUnavailable
 
 from services.util import (convert_config, bigint2time,
                            time2bigint, valid_email, batch,
@@ -182,6 +181,15 @@ class TestUtil(unittest.TestCase):
         self.assertEquals(extract_username('username'), 'username')
         self.assertEquals(extract_username('test@test.com'),
                           'u2wqblarhim5su7pxemcbwdyryrghmuk')
+        # test unicode/punycode (straight UTF8 and urlencoded)
+        self.assertEquals(extract_username('Fran%c3%a7ios@valid.test'),
+                          'ym3nccfhvptfrhn7nkhhyvzgf2yl7r5y')  # proper char
+        self.assertEquals(extract_username('Fran%ef%bb%b4ios@valid.test'),
+                          'gbejqe5rmzej6xu3lo3g7lk2ptvgxehm')  # valid utf-8
+        self.assertRaises(UnicodeError, extract_username,
+                          'bo%EF%bb@badcharacter.test')        # bad utf-8 char
+        self.assertRaises(UnicodeError, extract_username,
+                          'bo%ef%bb%bc@badbidiuser.test')      # invalid BIDI
 
     def test_get_url(self):
 
