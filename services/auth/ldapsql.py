@@ -122,13 +122,14 @@ class LDAPAuth(object):
                  'pool_recycle': int(pool_recycle),
                  'logging_name': 'weaveserver'}
 
-        if self.sqluri.startswith('mysql'):
-            sqlkw['reset_on_return'] = reset_on_return
-        self._engine = create_engine(sqluri, **sqlkw)
-        for table in tables:
-            table.metadata.bind = self._engine
-            if create_tables:
-                table.create(checkfirst=True)
+        if self.sqluri is not None:
+            if self.sqluri.startswith('mysql'):
+                sqlkw['reset_on_return'] = reset_on_return
+            self._engine = create_engine(sqluri, **sqlkw)
+            for table in tables:
+                table.metadata.bind = self._engine
+                if create_tables:
+                    table.create(checkfirst=True)
 
     def _conn(self, bind=None, passwd=None):
         return self.pool.connection(bind, passwd)

@@ -207,6 +207,12 @@ def get_auth(config):
     except ImportError:
         pass
 
+    try:
+        from services.auth.mozilla import MozillaAuth
+        ServicesAuth.register(MozillaAuth)
+    except ImportError:
+        pass
+
     from services.auth.dummy import DummyAuth
     ServicesAuth.register(DummyAuth)
 
