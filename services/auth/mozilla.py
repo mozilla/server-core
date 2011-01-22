@@ -64,7 +64,7 @@ class MozillaAuth(LDAPAuth):
                                      users_base_dn, pool_size, pool_recycle,
                                      reset_on_return, single_box, ldap_timeout,
                                      nodes_scheme, check_account_state,
-                                     create_tables, ldap_pool_size, **kw)
+                                     create_tables, ldap_pool_size)
 
         self.sreg_location = sreg_location
         self.sreg_scheme = sreg_scheme
