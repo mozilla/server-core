@@ -92,7 +92,7 @@ if LDAP:
                     self.users[dn][key] = value
             return ldap.RES_MODIFY, ''
 
-        def delete_s(self, dn):
+        def delete_s(self, dn, **kw):
             if dn in self.users:
                 del self.users[dn]
             elif dn in ('ou=users,dc=mozilla', 'md5'):
@@ -248,3 +248,32 @@ class TestLDAPSQLAuth(unittest.TestCase):
                         ldap_pool_size=5)
 
         self.assertEqual(auth.pool.size, 5)
+
+    def test_update_password(self):
+        # when update_password is called without old password
+        # the admin auth should be used.
+        #
+        # When called with the user password, the bind
+        # should be the user
+        if not LDAP:
+            return
+        auth = LDAPAuth('ldap://localhost', 'sqlite:///:memory:',
+                        ldap_pool_size=5)
+
+        calls = []
+        auth._conn2 = auth._conn
+
+        def conn(bind=None, passwd=None):
+            calls.append((bind, passwd))
+            return auth._conn2(bind, passwd)
+
+        auth._conn = conn
+        try:
+            self.assertTrue(auth.update_password(1, 'password'))
+            self.assertEqual(calls[-1], ('adminuser', 'adminuser'))
+            self._create_user(auth, 'tarek', 'tarek', 'tarek@ziade.org')
+            self.assertTrue(auth.update_password(1, 'password', 'tarek'))
+            self.assertEqual(calls[-1],
+                             ('uid=tarek,ou=users,dc=mozilla', 'tarek'))
+        finally:
+            auth._conn = auth._conn2

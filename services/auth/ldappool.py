@@ -42,7 +42,7 @@ from threading import RLock
 from ldap.ldapobject import ReconnectLDAPObject
 import ldap
 
-from services.util import BackendTimeoutError
+from services.util import BackendError, BackendTimeoutError
 
 
 class MaxConnectionReachedError(Exception):
@@ -68,11 +68,13 @@ class StateConnector(ReconnectLDAPObject):
         self.cred = None
         return res
 
-    def add_s(self,*args,**kwargs):
-        return self._apply_method_s(ReconnectLDAPObject.add_s,*args,**kwargs)
+    def add_s(self, *args, **kwargs):
+        return self._apply_method_s(ReconnectLDAPObject.add_s, *args,
+                                    **kwargs)
 
-    def modify_s(self,*args,**kwargs):
-        return self._apply_method_s(ReconnectLDAPObject.modify_s,*args,**kwargs)
+    def modify_s(self, *args, **kwargs):
+        return self._apply_method_s(ReconnectLDAPObject.modify_s, *args,
+                                    **kwargs)
 
 
 class ConnectionPool(object):
@@ -164,7 +166,7 @@ class ConnectionPool(object):
             try:
                 conn = self._get_connection(bind, passwd)
             except MaxConnectionReachedError:
-                tries +=1
+                tries += 1
                 time.sleep(0.1)
                 # removing the first inactive connector
                 with self._pool_lock:
