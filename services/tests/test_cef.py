@@ -39,7 +39,7 @@ from tempfile import mkstemp
 import sys
 import StringIO
 
-from services.cef import log_failure
+from services.cef import log_cef
 from services import logger
 
 class TestWeaveLogger(unittest.TestCase):
@@ -58,7 +58,7 @@ class TestWeaveLogger(unittest.TestCase):
 
         try:
             # should not fail
-            log_failure('xx|x', 5, environ, config)
+            log_cef('xx|x', 5, environ, config)
             with open(filename) as f:
                 content = f.read()
         finally:
@@ -71,7 +71,7 @@ class TestWeaveLogger(unittest.TestCase):
         environ['HTTP_USER_AGENT'] = "|"
         try:
             # should not fail
-            log_failure('xxx', 5, environ, config)
+            log_cef('xxx', 5, environ, config)
             with open(filename) as f:
                 content = f.read()
         finally:
@@ -89,7 +89,7 @@ class TestWeaveLogger(unittest.TestCase):
         old = logger.warning
         logger.warning = _warning
         try:
-            log_failure('xxx', 5, environ, config, **{'ba|d': 1})
+            log_cef('xxx', 5, environ, config, **{'ba|d': 1})
         finally:
             logger.warning = old
 
@@ -112,7 +112,7 @@ class TestWeaveLogger(unittest.TestCase):
                   'cef.syslog.facility': 'AUTH',
                   'cef.syslog.options': 'PID,CONS'}
 
-        log_failure('xx|x', 5, environ, config)
+        log_cef('xx|x', 5, environ, config)
 
         # XXX how to get the facility filename via an API ?
         # See http://bugs.python.org/issue10595
@@ -141,7 +141,7 @@ class TestWeaveLogger(unittest.TestCase):
                   'cef.syslog.facility': 'AUTH',
                   'cef.syslog.options': 'PID,CONS'}
 
-        log_failure('xx|x', 5, environ, config)
+        log_cef('xx|x', 5, environ, config)
 
         # XXX how to get the facility filename via an API ?
         # See http://bugs.python.org/issue10595
@@ -152,3 +152,48 @@ class TestWeaveLogger(unittest.TestCase):
             logs = '\n'.join(f.read().split('\n')[-10:])
 
         self.assertTrue('MySuperBrowser2' in logs)
+
+    def test_suser(self):
+        environ = {'REMOTE_ADDR': '127.0.0.1', 'HTTP_HOST': '127.0.0.1',
+                   'PATH_INFO': '/', 'REQUEST_METHOD': 'GET',
+                   'HTTP_USER_AGENT': 'MySuperBrowser'}
+
+        config = {'cef.version': '0', 'cef.vendor': 'mozilla',
+                  'cef.device_version': '3', 'cef.product': 'weave',
+                  'cef': True}
+
+        filename = config['cef.file'] = mkstemp()[1]
+
+        try:
+            # should not fail
+            log_cef('xx|x', 5, environ, config, username='me')
+            with open(filename) as f:
+                content = f.read()
+        finally:
+            if os.path.exists(filename):
+                os.remove(filename)
+
+        self.assertTrue('suser=me' in content)
+
+    def test_custom_extensions(self):
+        environ = {'REMOTE_ADDR': '127.0.0.1', 'HTTP_HOST': '127.0.0.1',
+                   'PATH_INFO': '/', 'REQUEST_METHOD': 'GET',
+                   'HTTP_USER_AGENT': 'MySuperBrowser'}
+
+        config = {'cef.version': '0', 'cef.vendor': 'mozilla',
+                  'cef.device_version': '3', 'cef.product': 'weave',
+                  'cef': True}
+
+        filename = config['cef.file'] = mkstemp()[1]
+
+        try:
+            # should not fail
+            log_cef('xx|x', 5, environ, config, username='me',
+                    custom1='ok')
+            with open(filename) as f:
+                content = f.read()
+        finally:
+            if os.path.exists(filename):
+                os.remove(filename)
+
+        self.assertTrue('custom1=ok' in content)

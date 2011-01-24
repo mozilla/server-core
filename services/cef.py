@@ -94,7 +94,10 @@ _CEF_FORMAT = ('%(date)s %(host)s CEF:%(version)s|%(vendor)s|%(product)s|'
                '%(device_version)s|%(signature)s|%(name)s|%(severity)s|'
                'cs1Label=requestClientApplication cs1=%(user_agent)s '
                'requestMethod=%(method)s request=%(url)s '
-               'src=%(source)s dest=%(dest)s')
+               'src=%(source)s dest=%(dest)s suser=%(suser)s')
+
+_EXTENSIONS = ['cs1Label', 'cs1', 'requestMethod', 'request', 'src', 'dest',
+               'suser']
 _FIND_PIPE = re.compile(r'([|\\=])')
 
 
@@ -156,8 +159,8 @@ def _str2facility(value):
     return _SYSLOG_FACILITY[value.strip()]
 
 
-def log_failure(message, severity, environ, config, signature=AUTH_FAILURE,
-                **kw):
+def log_cef(message, severity, environ, config, username='none',
+            signature=AUTH_FAILURE, **kw):
     """Creates a CEF record, and emit it in syslog or another file.
 
     Args:
@@ -165,6 +168,8 @@ def log_failure(message, severity, environ, config, signature=AUTH_FAILURE,
         - severity: integer from 0 to 10
         - environ: the WSGI environ object
         - config: configuration dict
+        - signature: CEF signature code
+        - username: user name
         - extra keywords: extra keys used in the CEF extension
     """
     # XXX might want to remove the request dependency here
@@ -191,6 +196,7 @@ def log_failure(message, severity, environ, config, signature=AUTH_FAILURE,
               'device_version': config['device_version'],
               'product': config['product'],
               'host': _HOST,
+              'suser': username,
               'date': strftime("%b %d %H:%M:%S")}
 
     # make sure we don't have a | anymore in regular fields
@@ -208,8 +214,15 @@ def log_failure(message, severity, environ, config, signature=AUTH_FAILURE,
     # overriding with provided datas
     fields.update(kw)
 
+    # adding custom extensions
+    cef = _CEF_FORMAT
+    custom_ext = ['%s=%%(%s)s' % (key, key) for key in kw
+                  if key not in _EXTENSIONS]
+    if len(custom_ext) > 0:
+        cef += ' %s' % ' '.join(custom_ext)
+
     # building the message
-    msg = _CEF_FORMAT % fields
+    msg = cef % fields
 
     if config['file'] == 'syslog':
         if not SYSLOG:

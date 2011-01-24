@@ -42,7 +42,7 @@ import base64
 from webob.exc import HTTPUnauthorized
 
 from services.auth import get_auth
-from services.cef import log_failure
+from services.cef import log_cef
 
 
 class Authentication(object):
@@ -101,14 +101,13 @@ class Authentication(object):
 
             # let's reject the call if the url is not owned by the user
             if (username is not None and user_name != username):
-                log_failure('Username Does Not Match URL', 7, environ,
-                            config)
+                log_cef('Username Does Not Match URL', 7, environ, config)
                 raise HTTPUnauthorized()
 
             # let's try an authentication
             user_id = self.backend.authenticate_user(user_name, password)
             if user_id is None:
-                log_failure('Authentication Failed', 5, environ, config)
+                log_cef('Authentication Failed', 5, environ, config)
                 raise HTTPUnauthorized()
 
             # we're all clear ! setting up REMOTE_USER
