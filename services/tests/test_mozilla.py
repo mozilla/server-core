@@ -36,7 +36,6 @@
 import unittest
 import wsgi_intercept
 from webob import Response
-from services.auth.mozilla import MozillaAuth
 from wsgi_intercept.urllib2_intercept import install_opener
 install_opener()
 
@@ -44,6 +43,7 @@ try:
     import ldap
     from services.auth.ldappool import StateConnector
     from services.auth.ldapsql import LDAPAuth
+    from services.auth.mozilla import MozillaAuth
     LDAP = True
 except ImportError:
     LDAP = False
