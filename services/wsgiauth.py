@@ -43,6 +43,7 @@ from webob.exc import HTTPUnauthorized
 
 from services.auth import get_auth
 from services.cef import log_cef
+from services.util import extract_username
 
 
 class Authentication(object):
@@ -104,10 +105,27 @@ class Authentication(object):
                 log_cef('Username Does Not Match URL', 7, environ, config)
                 raise HTTPUnauthorized()
 
+            # if this is an email, hash it. Save the original for logging and
+            #  debugging.
+            if "@" in user_name:
+                remote_user_original = user_name
+            try:
+                user_name = extract_username(user_name)
+            except UnicodeError:
+                log_failure('Invalid characters specified in username ', 5,
+                            environ, config)
+                raise HTTPBadRequest('Invalid characters specified in ' +
+                                     'username', {}, 'Username must be BIDI ' +
+                                     'compliant UTF-8')
+
             # let's try an authentication
             user_id = self.backend.authenticate_user(user_name, password)
             if user_id is None:
-                log_cef('Authentication Failed', 5, environ, config)
+                err = 'Authentication Failed for Backend service ' + user_name
+                if remote_user_original is not None and \
+                    user_name != remote_user_original:
+                        err += ' (%s)' % (remote_user_original)
+                log_failure(err, 5, environ, config)
                 raise HTTPUnauthorized()
 
             # we're all clear ! setting up REMOTE_USER

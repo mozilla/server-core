@@ -39,7 +39,6 @@ Various utilities
 import traceback
 import random
 import string
-import sys
 from hashlib import sha256, sha1
 import base64
 import simplejson as json
@@ -50,16 +49,13 @@ from email.header import Header
 import smtplib
 import socket
 import re
-from functools import wraps
 import datetime
 import os
 import logging
 import urllib2
-import socket
-import base64
 from urlparse import urlparse, urlunparse
 
-from webob.exc import HTTPServiceUnavailable, HTTPBadRequest
+from webob.exc import HTTPBadRequest
 from webob import Response
 
 from sqlalchemy.exc import OperationalError
@@ -387,6 +383,23 @@ class HTTPJsonBadRequest(HTTPBadRequest):
         return resp(environ, start_response)
 
 
+def email_to_idn(addr):
+    """ Convert an UTF-8 encoded email address to it's IDN (punycode)
+        equivalent
+
+        this method can raise the following:
+        UnicodeError -- the passed string is not Unicode valid or BIDI
+        compliant
+          Be sure to examine the exception cause to determine the final error.
+    """
+    # decode the string if passed as MIME (some MIME encodes @)
+    addr = urllib2.unquote(addr).decode('utf-8')
+    if '@' not in addr:
+        return addr
+    prefix, suffix = addr.split('@', 1)
+    return "%s@%s" % (prefix.encode('idna'), suffix.encode('idna'))
+
+
 def extract_username(username):
     """Extracts the user name.
 
@@ -395,7 +408,8 @@ def extract_username(username):
     """
     if '@' not in username:
         return username
-    hashed = sha1(username.lower()).digest()
+    username = email_to_idn(username).lower()
+    hashed = sha1(username).digest()
     return base64.b32encode(hashed).lower()
 
 
@@ -411,12 +425,9 @@ class CatchErrorMiddleware(object):
         except:
             err = traceback.format_exc()
             self.logger.error(err)
-            try:
-                start_response('500 Internal Server Error',
+            start_response('500 Internal Server Error',
                                [('content-type', 'text/plain')])
-                return []
-            finally:
-                exc_info = None
+            return []
 
 
 def get_url(url, method='GET', data=None, user=None, password=None, timeout=5,
