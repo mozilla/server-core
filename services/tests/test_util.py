@@ -190,8 +190,6 @@ class TestUtil(unittest.TestCase):
         # test unicode/punycode (straight UTF8 and urlencoded)
         self.assertEquals(extract_username('Fran%c3%a7ios@valid.test'),
                           'ym3nccfhvptfrhn7nkhhyvzgf2yl7r5y')  # proper char
-        self.assertEquals(extract_username('Fran%ef%bb%b4ios@valid.test'),
-                          'gbejqe5rmzej6xu3lo3g7lk2ptvgxehm')  # valid utf-8
         self.assertRaises(UnicodeError, extract_username,
                           'bo%EF%bb@badcharacter.test')        # bad utf-8 char
         self.assertRaises(UnicodeError, extract_username,
