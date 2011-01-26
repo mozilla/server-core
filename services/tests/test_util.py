@@ -272,7 +272,7 @@ class TestUtil(unittest.TestCase):
         def __call__(self, request):
             raise Exception("fail!")
 
-    def test_middleware_exception():
+    def test_middleware_exception(self):
         def hello():
             return "hello"
         def fake_start_response(*args):
