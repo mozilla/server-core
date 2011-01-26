@@ -41,6 +41,7 @@ import os
 import urllib2
 import socket
 
+
 from services.util import (convert_config, bigint2time,
                            time2bigint, valid_email, batch,
                            validate_password, ssha, ssha256,
@@ -264,3 +265,18 @@ class TestUtil(unittest.TestCase):
         self.assertEqual(get_source_ip(environ2), 'two')
         self.assertEqual(get_source_ip(environ3), 'three')
         self.assertEqual(get_source_ip(environ4), None)
+
+    class BadClass(object):
+        from webob.dec import wsgify
+        @wsgify
+        def __call__(self, request):
+            raise Exception("fail!")
+
+    def test_middleware_exception():
+        def hello():
+            return "hello"
+        def fake_start_response(*args):
+           pass
+        app = CatchErrorMiddleware(BadClass(), hook = hello)
+        result = app({}, fake_start_response)
+        self.assertEqual(result.body, "hello")

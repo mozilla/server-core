@@ -199,8 +199,12 @@ def get_auth(config):
       constructor -- with the prefix stripped.
     """
     # pre-loading auth plugins services provides to ease configuration
-    from services.auth.sql import SQLAuth
-    ServicesAuth.register(SQLAuth)
+    try:
+        from services.auth.sql import SQLAuth
+        ServicesAuth.register(SQLAuth)
+    except ImportError:
+        pass
+
     try:
         from services.auth.ldapsql import LDAPAuth
         ServicesAuth.register(LDAPAuth)

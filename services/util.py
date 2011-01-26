@@ -415,9 +415,12 @@ def extract_username(username):
 
 class CatchErrorMiddleware(object):
     """Middleware that catches error, log them and return a 500"""
-    def __init__(self, app, logger_name='root'):
+    def __init__(self, app, logger_name='root', hook=None,
+                 type = 'text/plain'):
         self.app = app
         self.logger = logging.getLogger(logger_name)
+        self.hook = hook
+        self.ctype = type
 
     def __call__(self, environ, start_response):
         try:
@@ -426,8 +429,15 @@ class CatchErrorMiddleware(object):
             err = traceback.format_exc()
             self.logger.error(err)
             start_response('500 Internal Server Error',
-                               [('content-type', 'text/plain')])
-            return []
+                           [('content-type', self.ctype)])
+            response = "An unexpected error occurred"
+            if self.hook:
+                try:
+                    response = self.hook()
+                except Exception, e:
+                    pass
+
+            return [response]
 
 
 def get_url(url, method='GET', data=None, user=None, password=None, timeout=5,
