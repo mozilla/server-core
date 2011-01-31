@@ -82,12 +82,17 @@ class MozillaAuth(LDAPAuth):
         status, headers, body = get_url(url, method, data)
 
         if not status == 200:
-            logger.error("got status %i from sreg (%s) url %s" %
-                          (status, url, body))
+            logger.error("got status %i from sreg (%s): %s" %
+                                                (status, url, body))
             raise BackendError()
 
         if body:
-            return json.loads(body)
+            try:
+                return json.loads(body)
+            except Exception, e:
+                logger.error("bad json body from sreg (%s): %s" %
+                                                        (url, body))
+                return {}
         return {}
 
     @classmethod
@@ -98,10 +103,10 @@ class MozillaAuth(LDAPAuth):
     def generate_url(self, username, additional_path=None):
         path = "%s/%s" % (self.sreg_path, username)
         if additional_path:
-            url = "%s/%s" % (path, additional_path)
+            path = "%s/%s" % (path, additional_path)
 
         url = urlparse.urlunparse([self.sreg_scheme, self.sreg_location,
-                                  "%s/%s" % (self.sreg_path, username),
+                                  path,
                                   None, None, None])
         return url
 
