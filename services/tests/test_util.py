@@ -48,7 +48,7 @@ from services.util import (convert_config, bigint2time,
                            valid_password, json_response,
                            newlines_response, whoisi_response, text_response,
                            extract_username, get_url, proxy,
-                           get_source_ip)
+                           get_source_ip, CatchErrorMiddleware)
 
 
 _EXTRA = """\
@@ -266,17 +266,21 @@ class TestUtil(unittest.TestCase):
         self.assertEqual(get_source_ip(environ3), 'three')
         self.assertEqual(get_source_ip(environ4), None)
 
-    class BadClass(object):
-        from webob.dec import wsgify
-        @wsgify
-        def __call__(self, request):
-            raise Exception("fail!")
 
     def test_middleware_exception(self):
+
+        class BadClass(object):
+            from webob.dec import wsgify
+            @wsgify
+            def __call__(self, request):
+                raise Exception("fail!")
+
         def hello():
             return "hello"
+
         def fake_start_response(*args):
            pass
-        app = CatchErrorMiddleware(BadClass(), hook = hello)
+
+        app = CatchErrorMiddleware(BadClass(), hook=hello)
         result = app({}, fake_start_response)
-        self.assertEqual(result.body, "hello")
+        self.assertEqual(result[0], "hello")
