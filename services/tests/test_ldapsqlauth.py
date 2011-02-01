@@ -138,6 +138,7 @@ class TestLDAPSQLAuth(unittest.TestCase):
         self.assertTrue(auth.update_email(uid, 'new@email.com', 'tarek'))
         name, email = auth.get_user_info(uid)
         self.assertEquals(email, 'new@email.com')
+        self.assertEquals(name, 'tarek')
 
         # update password
         auth.update_password(uid, 'xxxx')

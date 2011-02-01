@@ -358,7 +358,7 @@ class LDAPAuth(object):
         dn = self._get_dn(user_name)
         scope = ldap.SCOPE_BASE
 
-        with self._conn(self.admin_user, self.admin_password) as conn:
+        with self._conn() as conn:
             try:
                 res = conn.search_st(dn, scope, attrlist=['mail'],
                                      timeout=self.ldap_timeout)
@@ -372,7 +372,7 @@ class LDAPAuth(object):
             return None, None
 
         res = res[0][1]
-        return user_id, res['mail'][0]
+        return user_name, res['mail'][0]
 
     def update_email(self, user_id, email, password=None):
         """Change the user e-mail
