@@ -95,7 +95,6 @@ def initenv(config=None):
     else:
         test_filename = 'tests.ini'
 
-
     while True:
         ini_file = os.path.join(topdir, test_filename)
         if os.path.exists(ini_file):

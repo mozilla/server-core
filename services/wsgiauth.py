@@ -39,7 +39,7 @@ Authentication class.
 import binascii
 import base64
 
-from webob.exc import HTTPUnauthorized
+from webob.exc import HTTPUnauthorized, HTTPBadRequest
 
 from services.auth import get_auth
 from services.cef import log_cef
@@ -112,7 +112,7 @@ class Authentication(object):
             try:
                 user_name = extract_username(user_name)
             except UnicodeError:
-                log_failure('Invalid characters specified in username ', 5,
+                log_cef('Invalid characters specified in username ', 5,
                             environ, config)
                 raise HTTPBadRequest('Invalid characters specified in ' +
                                      'username', {}, 'Username must be BIDI ' +
@@ -125,7 +125,7 @@ class Authentication(object):
                 if remote_user_original is not None and \
                     user_name != remote_user_original:
                         err += ' (%s)' % (remote_user_original)
-                log_failure(err, 5, environ, config)
+                log_cef(err, 5, environ, config)
                 raise HTTPUnauthorized()
 
             # we're all clear ! setting up REMOTE_USER

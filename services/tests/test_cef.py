@@ -36,11 +36,10 @@
 import unittest
 import os
 from tempfile import mkstemp
-import sys
-import StringIO
 
 from services.cef import log_cef
 from services import logger
+
 
 class TestWeaveLogger(unittest.TestCase):
 
@@ -83,6 +82,7 @@ class TestWeaveLogger(unittest.TestCase):
 
         # should log.warn because extra keys shouldn't have pipes
         _warn = []
+
         def _warning(warn):
             _warn.append(warn)
 

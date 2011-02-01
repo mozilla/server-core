@@ -93,7 +93,7 @@ class PluginRegistry(object):
             # its a code location maybe, let's load it
             try:
                 backend = _resolve_name(backend_name)
-            except ImportError, e:
+            except ImportError:
                 msg = ('Unknown fully qualified name for the backend:'
                        ' %r') % backend_name
                 raise KeyError(msg)

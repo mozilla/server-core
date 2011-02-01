@@ -38,6 +38,8 @@ Application entry point.
 """
 import time
 import traceback
+import pprint
+import StringIO
 
 from paste.translogger import TransLogger
 from paste.exceptions.errormiddleware import ErrorMiddleware
@@ -49,9 +51,27 @@ from webob.exc import HTTPNotFound, HTTPBadRequest, HTTPServiceUnavailable
 from webob import Response
 
 from services.util import (convert_config, CatchErrorMiddleware,
-                           BackendError)
+                           BackendError, html_response, text_response)
 from services import logger
 from services.wsgiauth import Authentication
+
+
+_DEBUG_TMPL = """
+<html>
+ <head>
+  <title>Debug information</title>
+ </head>
+ <body>
+  <h1>Request environ</h1>
+  <pre>
+   %(environ)s
+  </pre>
+  <h1>Additional information</h1>
+  <pre>
+  %(extra)s
+  </pre>
+ </body>
+</html>"""
 
 
 class SyncServerApp(object):
@@ -69,6 +89,13 @@ class SyncServerApp(object):
 
         # global config
         self.retry_after = self.config.get('global.retry_after', 1800)
+
+        # heartbeat page
+        self.heartbeat_page = self.config.get('global.heartbeat_page',
+                                              '__heartbeat__')
+
+        # debug page, if any
+        self.debug_page = self.config.get('global.debug_page')
 
         # loading the authentication tool
         self.auth = auth_class(self.config)
@@ -122,6 +149,67 @@ class SyncServerApp(object):
         self._host_configs[host] = host_config
         return host_config
 
+    #
+    # Debug page
+    #
+    def _debug_server(self, request):
+        """Can be overriden to provide extra information on debug calls.
+
+        See also _debug
+        """
+        return []
+
+    def _debug(self, request):
+        """Returns a debug page containing useful information about the
+        environ.
+
+        Application based on SyncServerApp can implement _debug_server to
+        add their own tests.
+
+        IMPORTANT: this page must not be published without any form of
+        authentication since it can display sensitive information.
+
+        It is disabled by default.
+        """
+        res = _DEBUG_TMPL
+
+        # environ
+        out = StringIO.StringIO()
+        pprint.pprint(request.environ, out)
+        out.seek(0)
+        data = {'environ': out.read()}
+
+        # extra info
+        extra = '\n'.join(self._debug_server(request))
+        if extra == '':
+            extra = 'None.'
+        data['extra'] = extra
+
+        return html_response(res % data)
+
+    #
+    # Heartbeat page
+    #
+    def _check_server(self, request):
+        """Can be overriden to perform extra tests on heartbeat calls.
+
+        Should raise a HTTPServerUnavailable on failure. See also _heartbeat
+        """
+        pass
+
+    def _heartbeat(self, request):
+        """Performs a health check on the server.
+
+        Returns a 200 on success, a 503 on failure. Application based on
+        SyncServerApp can implement _check_server to add their own tests.
+
+        It is enabled by default at __heartbeat__ but does not perform
+        any test on the infra unless _check_server is overriden.
+        """
+        # calls the check if any - this will raise a 503 if anything's wrong
+        self._check_server(request)
+        return text_response('')
+
     @wsgify
     def __call__(self, request):
         if request.method in ('HEAD',):
@@ -140,6 +228,14 @@ class SyncServerApp(object):
         url = request.path_info.rstrip('/')
         if url != '':
             request.environ['PATH_INFO'] = request.path_info = url
+
+        if (self.heartbeat_page is not None and
+            url == '/%s' % self.heartbeat_page):
+            return self._heartbeat(request)
+
+        if self.debug_page is not None and url == '/%s' % self.debug_page:
+            return self._debug(request)
+
         match = self.mapper.routematch(environ=request.environ)
 
         if match is None:
@@ -188,8 +284,6 @@ class SyncServerApp(object):
         except KeyError:
             return None
         return getattr(controller, method)
-
-
 
 
 def set_app(urls, controllers, klass=SyncServerApp, auth_class=Authentication,

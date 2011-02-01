@@ -159,7 +159,6 @@ class TestLDAPSQLAuth(unittest.TestCase):
                 with self.pool.connection() as conn:  # NOQA
                     time.sleep(self.duration)
 
-
         def tryit():
             with pool.connection() as conn:  # NOQA
                 pass

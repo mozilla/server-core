@@ -38,7 +38,6 @@ import unittest
 import datetime
 
 from sqlalchemy.sql import text
-from sqlalchemy.exc import OperationalError
 
 from services.tests.support import initenv
 from services.auth.sql import SQLAuth

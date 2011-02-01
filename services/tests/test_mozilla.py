@@ -98,7 +98,7 @@ if LDAP:
                     self.users[dn][key] = value
             return ldap.RES_MODIFY, ''
 
-        def delete_s(self, dn):
+        def delete_s(self, dn, **kw):
             if dn in self.users:
                 del self.users[dn]
             elif dn in ('ou=users,dc=mozilla', 'md5'):
@@ -117,13 +117,16 @@ if LDAP:
 
     LDAPAuth._conn = _conn
 
+
 # returns a body that has all the responses we need
 def fake_response():
     return Response('{"success": 1, "code": "AAAA-AAAA-AAAA-AAAA"}')
 
+
 # returns a body that has all the responses we need
 def bad_reset_code_response():
     return Response("")
+
 
 class TestLDAPSQLAuth(unittest.TestCase):
 
@@ -154,10 +157,12 @@ class TestLDAPSQLAuth(unittest.TestCase):
 
         auth.clear_reset_code(uid)
 
+
 def test_suite():
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(TestLDAPSQLAuth))
     return suite
+
 
 if __name__ == "__main__":
     unittest.main(defaultTest="test_suite")

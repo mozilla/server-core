@@ -210,7 +210,6 @@ def log_cef(message, severity, environ, config, username='none',
         kw[_FIND_PIPE.sub('?', key)] = value
         del kw[key]
 
-
     # overriding with provided datas
     fields.update(kw)
 

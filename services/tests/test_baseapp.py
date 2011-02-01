@@ -115,6 +115,52 @@ class TestBaseApp(unittest.TestCase):
         else:
             raise AssertionError()
 
+    def test_heartbeat_debug_pages(self):
+
+        config = {'global.heartbeat_page': '__heartbeat__',
+                  'global.debug_page': '__debug__',
+                  'auth.backend': 'dummy'}
+        urls = []
+        controllers = {}
+
+        # testing the default configuration
+        app = SyncServerApp(urls, controllers, config)
+
+        # a heartbeat returns a 200 / empty body
+        request = _Request('GET', '/__heartbeat__', 'localhost')
+        res = app(request)
+        self.assertEqual(res.status_int, 200)
+        self.assertEqual(res.body, '')
+
+        # the debug page returns a 200 / info in the body
+        request = _Request('GET', '/__debug__', 'localhost')
+        res = app(request)
+        self.assertEqual(res.status_int, 200)
+        self.assertTrue("'REQUEST_METHOD': 'GET'" in res.body)
+
+        # now let's create an app with extra heartbeating
+        # and debug info
+        class MyCoolApp(SyncServerApp):
+
+            def _debug_server(self, request):
+                return ['DEEBOOG']
+
+            def _check_server(self, request):
+                raise HTTPServiceUnavailable()
+
+        # testing that new app
+        app = MyCoolApp(urls, controllers, config)
+
+        # a heartbeat returns a 503 / empty body
+        request = _Request('GET', '/__heartbeat__', 'localhost')
+        self.assertRaises(HTTPServiceUnavailable, app, request)
+
+        # the debug page returns a 200 / info in the body
+        request = _Request('GET', '/__debug__', 'localhost')
+        res = app(request)
+        self.assertEqual(res.status_int, 200)
+        self.assertTrue("DEEBOOG" in res.body)
+
 
 def test_suite():
     suite = unittest.TestSuite()
