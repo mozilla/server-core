@@ -40,7 +40,8 @@ import tempfile
 import os
 import urllib2
 import socket
-
+import StringIO
+import sys
 
 from services.util import (convert_config, bigint2time,
                            time2bigint, valid_email, batch,
@@ -282,5 +283,10 @@ class TestUtil(unittest.TestCase):
             pass
 
         app = CatchErrorMiddleware(BadClass(), hook=hello)
-        result = app({}, fake_start_response)
+        old_std = sys.stdout
+        sys.stdout = StringIO.StringIO()
+        try:
+            result = app({}, fake_start_response)
+        finally:
+            sys.stdout = old_std
         self.assertEqual(result[0], "hello")
