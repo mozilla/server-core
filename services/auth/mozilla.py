@@ -89,7 +89,7 @@ class MozillaAuth(LDAPAuth):
         if body:
             try:
                 return json.loads(body)
-            except Exception, e:
+            except Exception:
                 logger.error("bad json body from sreg (%s): %s" %
                                                         (url, body))
                 return {}

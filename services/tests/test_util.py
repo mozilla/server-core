@@ -266,11 +266,11 @@ class TestUtil(unittest.TestCase):
         self.assertEqual(get_source_ip(environ3), 'three')
         self.assertEqual(get_source_ip(environ4), None)
 
-
     def test_middleware_exception(self):
 
         class BadClass(object):
             from webob.dec import wsgify
+
             @wsgify
             def __call__(self, request):
                 raise Exception("fail!")
@@ -279,7 +279,7 @@ class TestUtil(unittest.TestCase):
             return "hello"
 
         def fake_start_response(*args):
-           pass
+            pass
 
         app = CatchErrorMiddleware(BadClass(), hook=hello)
         result = app({}, fake_start_response)

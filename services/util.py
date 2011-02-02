@@ -416,7 +416,7 @@ def extract_username(username):
 class CatchErrorMiddleware(object):
     """Middleware that catches error, log them and return a 500"""
     def __init__(self, app, logger_name='root', hook=None,
-                 type = 'text/plain'):
+                 type='text/plain'):
         self.app = app
         self.logger = logging.getLogger(logger_name)
         self.hook = hook
@@ -434,7 +434,7 @@ class CatchErrorMiddleware(object):
             if self.hook:
                 try:
                     response = self.hook()
-                except Exception, e:
+                except Exception:
                     pass
 
             return [response]
