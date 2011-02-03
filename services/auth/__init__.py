@@ -98,11 +98,12 @@ class ServicesAuth(PluginRegistry):
         """
 
     @abc.abstractmethod
-    def generate_reset_code(self, user_id):
+    def generate_reset_code(self, user_id, overwrite=False):
         """Generates a password reset code
 
         Args:
             user_id: user id
+            overwrite: if True, overwrites an existing code
 
         Returns:
             a reset code

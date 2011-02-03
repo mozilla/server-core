@@ -78,7 +78,7 @@ class DummyAuth(object):
 
         return self._users[user_name]
 
-    def generate_reset_code(self, user_id):
+    def generate_reset_code(self, user_id, overwrite=False):
         """Generates a reset code"""
         return 'XXXX-XXXX-XXXX-XXXX'
 

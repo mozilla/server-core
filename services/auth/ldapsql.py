@@ -37,32 +37,26 @@
 """
 from hashlib import sha1, md5
 import random
-import datetime
 
 import ldap
 
 from sqlalchemy.ext.declarative import declarative_base, Column
-from sqlalchemy import Integer, String, DateTime
+from sqlalchemy import Integer, String
 from sqlalchemy import create_engine, SmallInteger
-from sqlalchemy.sql import bindparam, select, insert, delete, update, and_
+from sqlalchemy.sql import select, insert, update, and_
 
-from services.util import (generate_reset_code, check_reset_code, ssha,
-                           BackendError)
+from services.util import BackendError, ssha
 from services.auth import NodeAttributionError
 from services.auth.ldappool import ConnectionPool
+from services.auth.resetcode import ResetCodeManager
 from services import logger
 
+#
+# Custom SQL tables:
+#   - user_ids: autoinc for the userId field
+#   - available_nodes: table that manages the nodes
+#
 _Base = declarative_base()
-
-
-class ResetCodes(_Base):
-    __tablename__ = 'reset_codes'
-
-    username = Column(String(32), primary_key=True, nullable=False)
-    reset = Column(String(32))
-    expiration = Column(DateTime())
-
-reset_codes = ResetCodes.__table__
 
 
 class UserIds(_Base):
@@ -84,14 +78,10 @@ class AvailableNodes(_Base):
 
 available_nodes = AvailableNodes.__table__
 
-tables = [reset_codes, userids, available_nodes]
-
-_USER_RESET_CODE = select([reset_codes.c.expiration,
-                           reset_codes.c.reset],
-              reset_codes.c.username == bindparam('user_name'))
+tables = [userids, available_nodes]
 
 
-class LDAPAuth(object):
+class LDAPAuth(ResetCodeManager):
     """LDAP authentication."""
 
     def __init__(self, ldapuri, sqluri, use_tls=False, bind_user='binduser',
@@ -125,11 +115,15 @@ class LDAPAuth(object):
         if self.sqluri is not None:
             if self.sqluri.startswith('mysql'):
                 sqlkw['reset_on_return'] = reset_on_return
-            self._engine = create_engine(sqluri, **sqlkw)
+            engine = create_engine(sqluri, **sqlkw)
             for table in tables:
-                table.metadata.bind = self._engine
+                table.metadata.bind = engine
                 if create_tables:
                     table.create(checkfirst=True)
+        else:
+            engine = None
+
+        ResetCodeManager.__init__(self, engine)
 
     def _conn(self, bind=None, passwd=None):
         return self.pool.connection(bind, passwd)
@@ -264,86 +258,6 @@ class LDAPAuth(object):
             return None
 
         return user['uidNumber'][0]
-
-    def generate_reset_code(self, user_id):
-        """Generates a reset code
-
-        Args:
-            user_id: user id
-
-        Returns:
-            a reset code, or None if the generation failed
-        """
-        code, expiration = generate_reset_code()
-
-        # XXX : use onupdate when its mysql
-        # otherwise an update
-        query = delete(reset_codes).where(reset_codes.c.username == user_id)
-        self._engine.execute(query)
-
-        query = insert(reset_codes).values(reset=code,
-                                           expiration=expiration,
-                                           username=user_id)
-
-        res = self._engine.execute(query)
-
-        if res.rowcount != 1:
-            logger.debug('Unable to add a new reset code in the'
-                         ' reset_code table')
-            return None  # XXX see if appropriate
-
-        return code
-
-    def verify_reset_code(self, user_id, code):
-        """Verify a reset code
-
-        Args:
-            user_id: user id
-            code: reset code
-
-        Returns:
-            True or False
-        """
-        if not check_reset_code(code):
-            return False
-
-        res = self._engine.execute(_USER_RESET_CODE, user_name=user_id)
-        res = res.fetchone()
-
-        if res is None or res.reset is None or res.expiration is None:
-            return False
-
-        # XXX SQLALchemy should turn it into a datetime for us
-        # but that does not occur with sqlite
-        if isinstance(res.expiration, basestring):
-            exp = datetime.datetime.strptime(res.expiration,
-                                             '%Y-%m-%d %H:%M:%S.%f')
-        else:
-            exp = res.expiration
-
-        if exp < datetime.datetime.now():
-            # expired
-            return False
-
-        if res.reset != code:
-            # wrong code
-            return False
-
-        return True
-
-    def clear_reset_code(self, user_id):
-        """Clears the reset code
-
-        Args:
-            user_id: user id
-
-        Returns:
-            True if the change was successful, False otherwise
-        """
-        query = delete(reset_codes)
-        query = query.where(reset_codes.c.username == user_id)
-        res = self._engine.execute(query)
-        return res.rowcount > 0
 
     def get_user_info(self, user_id):
         """Returns user info

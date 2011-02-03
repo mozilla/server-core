@@ -70,7 +70,7 @@ class MozillaAuth(LDAPAuth):
         self.sreg_scheme = sreg_scheme
         self.sreg_path = sreg_path
 
-    def _proxy(self, method, url, data=None):
+    def _proxy(self, method, url, data=None, headers=None):
         """Proxies and return the result from the other server.
 
         - scheme: http or https
@@ -79,7 +79,7 @@ class MozillaAuth(LDAPAuth):
         if data is not None:
             data = urlencode(data.items())
 
-        status, headers, body = get_url(url, method, data)
+        status, headers, body = get_url(url, method, data, headers)
 
         if not status == 200:
             logger.error("got status %i from sreg (%s): %s" %
@@ -117,18 +117,23 @@ class MozillaAuth(LDAPAuth):
 
         return 'success' in result
 
-    def generate_reset_code(self, user_id):
+    def generate_reset_code(self, user_id, overwrite=True):
         """Generates a reset code
 
         Args:
             user_id: user id
+            overwrite: if True, overwrites an existing code
 
         Returns:
             a reset code, or None if the generation failed
         """
         username = self._get_username(user_id)
-        result = self._proxy('GET',
-                        self.generate_url(username, 'reset_code'))
+        url = self.generate_url(username, 'reset_code')
+        headers = {}
+        if overwrite:
+            headers['X-Weave-Delete-Previous'] = '1'
+
+        result = self._proxy('GET', url, headers=headers)
         if not result.get('code'):
             return False
         return result['code']

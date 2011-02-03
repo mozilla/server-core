@@ -43,8 +43,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.interfaces import PoolListener
 from sqlalchemy.sql import bindparam, select, insert, update, delete
 
-from services.util import (validate_password, ssha256, check_reset_code,
+from services import logger
+from services.util import (validate_password, ssha256,
                            generate_reset_code, safe_execute)
+
+from services.auth.resetcode import ResetCodeManager
 
 # sharing the same table than the sql storage
 from services.auth.sqlmappers import users
@@ -71,7 +74,7 @@ class SetTextFactory(PoolListener):
         dbapi_con.text_factory = str
 
 
-class SQLAuth(object):
+class SQLAuth(ResetCodeManager):
     """SQL authentication."""
 
     def __init__(self, sqluri=_SQLURI, pool_size=20, pool_recycle=60,
@@ -86,11 +89,12 @@ class SQLAuth(object):
         if sqluri.startswith('sqlite'):
             sqlkw['listeners'] = [SetTextFactory()]
 
-        self._engine = create_engine(sqluri, **sqlkw)
-        users.metadata.bind = self._engine
+        engine = create_engine(sqluri, **sqlkw)
+        users.metadata.bind = engine
         if create_tables:
             users.create(checkfirst=True)
         self.sqluri = sqluri
+        ResetCodeManager.__init__(self, engine)
 
     @classmethod
     def get_name(self):
@@ -127,77 +131,6 @@ class SQLAuth(object):
 
         if validate_password(password, user.password_hash):
             return user.id
-
-    def generate_reset_code(self, user_id):
-        """Generates a reset code
-
-        Args:
-            user_id: user id
-            password: password hash
-
-        Returns:
-            a reset code, or None if the generation failed
-        """
-        code, expiration = generate_reset_code()
-        query = update(users).values(reset=code, reset_expiration=expiration)
-        res = safe_execute(self._engine, query.where(users.c.id == user_id))
-
-        if res.rowcount != 1:
-            return None  # XXX see if appropriate
-
-        return code
-
-    def verify_reset_code(self, user_id, code):
-        """Verify a reset code
-
-        Args:
-            user_id: user id
-            code: reset code
-
-        Returns:
-            True or False
-        """
-        if not check_reset_code(code):
-            return False
-
-        res = safe_execute(self._engine, _USER_RESET_CODE, user_id=user_id)
-        user = res.fetchone()
-
-        if user.reset is None or user.reset_expiration is None:
-            return False
-
-        # XXX SQLALchemy should turn it into a datetime for us
-        # but that does not occur with sqlite
-        if isinstance(user.reset_expiration, basestring):
-            exp = datetime.datetime.strptime(user.reset_expiration,
-                                             '%Y-%m-%d %H:%M:%S.%f')
-        else:
-            exp = user.reset_expiration
-
-        if exp < datetime.datetime.now():
-            # expired
-            return False
-
-        if user.reset != code:
-            # wrong code
-            return False
-
-        return True
-
-    def clear_reset_code(self, user_id):
-        """Clears the reset code
-
-        Args:
-            user_id: user id
-
-        Returns:
-            True if the change was successful, False otherwise
-        """
-        query = update(users).where(users.c.id == user_id)
-        code = expiration = None
-        res = safe_execute(self._engine, query.values(id=user_id, reset=code,
-                           reset_expiration=expiration))
-        return res.rowcount == 1
 
     def get_user_info(self, user_id):
         """Returns user info
@@ -263,3 +196,42 @@ class SQLAuth(object):
         """Returns the node of the user"""
         # the sql auth backend does not handle nodes.
         return None
+
+    #
+    # Reset code managment
+    #
+    def clear_reset_code(self, user_id):
+        query = update(users).where(users.c.id == user_id)
+        code = expiration = None
+        res = safe_execute(self._engine, query.values(id=user_id, reset=code,
+                           reset_expiration=expiration))
+        return res.rowcount == 1
+
+    def _get_reset_code(self, user_id):
+        res = self._engine.execute(_USER_RESET_CODE, user_id=user_id)
+        res = res.fetchone()
+
+        if res is None or res.reset is None or res.reset_expiration is None:
+            return None
+
+        if isinstance(res.reset_expiration, basestring):
+            exp = datetime.datetime.strptime(res.expiration,
+                                             '%Y-%m-%d %H:%M:%S.%f')
+        else:
+            exp = res.reset_expiration
+
+        if exp < datetime.datetime.now():
+            # expired
+            self.clear_reset_code(user_id)
+            return None
+
+        return res.reset
+
+    def _set_reset_code(self, user_id):
+        code, expiration = generate_reset_code()
+        query = update(users).values(reset=code, reset_expiration=expiration)
+        res = safe_execute(self._engine, query.where(users.c.id == user_id))
+        if res.rowcount != 1:
+            logger.debug('Unable to add a new reset code')
+            return None  # XXX see if appropriate
+        return code
