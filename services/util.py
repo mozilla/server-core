@@ -54,6 +54,8 @@ import os
 import logging
 import urllib2
 from urlparse import urlparse, urlunparse
+from decimal import Decimal
+import time
 
 from webob.exc import HTTPBadRequest
 from webob import Response
@@ -90,7 +92,8 @@ def text_response(data, **kw):
 
 def json_response(data, **kw):
     """Returns Response containing a json string"""
-    return Response(json.dumps(data), content_type='application/json', **kw)
+    return Response(json.dumps(data, use_decimal=True),
+                               content_type='application/json', **kw)
 
 
 def html_response(data, **kw):
@@ -102,7 +105,7 @@ def newlines_response(lines, **kw):
     """Returns a Response object containing a newlines output."""
 
     def _convert(line):
-        line = json.dumps(line).replace('\n', '\u000a')
+        line = json.dumps(line, use_decimal=True).replace('\n', '\u000a')
         return '%s\n' % line
 
     data = [_convert(line) for line in lines]
@@ -113,7 +116,7 @@ def whoisi_response(lines, **kw):
     """Returns a Response object containing a whoisi output."""
 
     def _convert(line):
-        line = json.dumps(line)
+        line = json.dumps(line, use_decimal=True)
         size = struct.pack('!I', len(line))
         return '%s%s' % (size, line)
 
@@ -138,22 +141,29 @@ def convert_response(request, lines, **kw):
 
 
 def time2bigint(value):
-    """Encodes a timestamp into a big int."""
-    return int(round_time(value) * 100)
+    """Encodes a float timestamp into a big int"""
+    return int(value * 100)
 
 
 def bigint2time(value):
-    """Decodes a big int into a timestamp."""
+    """Decodes a big int into a timestamp.
+
+    The returned timestamp is a 2 digits Decimal.
+    """
     if value is None:   # unexistant
         return None
-    return round_time(float(value) / 100)
+    return Decimal(value) / 100
 
 
-def round_time(value):
-    """Rounds a timestamp to two digits"""
-    if not isinstance(value, float):
-        value = float(value)
-    return round(value, 2)
+def round_time(value=None):
+    """Transforms a timestamp into a two digits Decimal.
+
+    If value is None, uses time.time()
+    """
+    if value is None:
+        value = time.time()
+    return Decimal(str(value)).quantize(Decimal('1.00'))
+
 
 _SALT_LEN = 8
 
@@ -375,7 +385,7 @@ class HTTPJsonBadRequest(HTTPBadRequest):
         headerlist = [(key, value) for key, value in
                       list(self.headerlist)
                       if key != 'Content-Type']
-        body = json.dumps(self.detail)
+        body = json.dumps(self.detail, use_decimal=True)
         resp = Response(body,
             status=self.status,
             headerlist=headerlist,

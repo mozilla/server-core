@@ -137,7 +137,8 @@ class TestUtil(unittest.TestCase):
 
     def test_time2bigint(self):
         now = time.time()
-        self.assertAlmostEqual(bigint2time(time2bigint(now)), now, places=1)
+        two_digits = bigint2time(time2bigint(now))
+        self.assertAlmostEqual(float(two_digits), now, places=1)
 
     def test_valid_email(self):
         self.assertFalse(valid_email('tarek'))
