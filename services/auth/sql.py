@@ -162,7 +162,7 @@ class SQLAuth(ResetCodeManager):
         res = safe_execute(self._engine, query.values(email=email))
         return res.rowcount == 1
 
-    def update_password(self, user_id, password, old_password=None):
+    def update_password(self, user_id, password, old_password=None, key=None):
         """Change the user password
 
         Args:
@@ -172,6 +172,17 @@ class SQLAuth(ResetCodeManager):
         Returns:
             True if the change was successful, False otherwise
         """
+        if old_password is None:
+            if key:
+                #using a key, therefore we should check it
+                if self._get_reset_code(user_id) == key:
+                    self.clear_reset_code(user_id)
+                else:
+                    logger.error("bad key used for update password")
+                    return False
+            else:
+                return False
+
         password_hash = ssha256(password)
         query = update(users).where(users.c.id == user_id)
         res = safe_execute(self._engine,

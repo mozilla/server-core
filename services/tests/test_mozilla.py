@@ -120,11 +120,11 @@ if LDAP:
 
 # returns a body that has all the responses we need
 def fake_response():
-    return Response('{"success": 1, "code": "AAAA-AAAA-AAAA-AAAA"}')
+    return Response('{"success": 1, "node": "foo"}')
 
 
 # returns a body that has all the responses we need
-def bad_reset_code_response():
+def bad_reset_code_resp():
     return Response("")
 
 
@@ -144,18 +144,20 @@ class TestLDAPSQLAuth(unittest.TestCase):
         auth_uid = auth.authenticate_user('tarek', 'tarek')
         self.assertEquals(auth_uid, uid)
 
-        # reset code APIs
-        code = auth.generate_reset_code(uid)
+        #password change with no old password (sreg)
+        self.assertTrue(auth.generate_reset_code(uid))
+        self.assertTrue(auth.update_password(uid, 'newpass', key='foo'))
 
-        wsgi_intercept.add_wsgi_intercept('localhost', 80,
-                                          bad_reset_code_response)
-        self.assertFalse(auth.verify_reset_code(uid, 'beh'))
-        self.assertFalse(auth.verify_reset_code(uid, 'XXXX-XXXX-XXXX-XXXX'))
+        #password change with old password (ldap)
+        self.assertTrue(auth.update_password(uid, 'newpass', 'tarek'))
+        auth_uid = auth.authenticate_user('tarek', 'newpass')
+        self.assertEquals(auth_uid, uid)
 
-        wsgi_intercept.add_wsgi_intercept('localhost', 80, fake_response)
-        self.assertTrue(auth.verify_reset_code(uid, code))
+        self.assertEquals(auth.get_user_node(uid), 'foo')
 
         auth.clear_reset_code(uid)
+        wsgi_intercept.add_wsgi_intercept('localhost', 80, bad_reset_code_resp)
+        self.assertFalse(auth.update_password(uid, 'newpass', key='foo'))
 
 
 def test_suite():

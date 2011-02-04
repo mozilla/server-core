@@ -113,3 +113,8 @@ class DummyAuth(object):
     def get_user_node(self, user_id, assign=True):
         """Returns the user node"""
         return None
+
+    def update_password(self, user_id, new_password,
+                        old_password=None, key=None):
+        """Updates the password"""
+        return True

@@ -115,7 +115,7 @@ class MozillaAuth(LDAPAuth):
         payload = {'password': password, 'email': email}
         result = self._proxy('PUT', self.generate_url(username), payload)
 
-        return 'success' in result
+        return result.get('success', False)
 
     def generate_reset_code(self, user_id, overwrite=True):
         """Generates a reset code
@@ -125,18 +125,12 @@ class MozillaAuth(LDAPAuth):
             overwrite: if True, overwrites an existing code
 
         Returns:
-            a reset code, or None if the generation failed
+            True if reset code was generated and sent to user, False otherwise
         """
         username = self._get_username(user_id)
-        url = self.generate_url(username, 'reset_code')
-        headers = {}
-        if overwrite:
-            headers['X-Weave-Delete-Previous'] = '1'
-
-        result = self._proxy('GET', url, headers=headers)
-        if not result.get('code'):
-            return False
-        return result['code']
+        result = self._proxy('POST',
+                             self.generate_url(username, 'password_reset'))
+        return result.get('success', False)
 
     def verify_reset_code(self, user_id, code):
         """Verify a reset code
@@ -148,16 +142,12 @@ class MozillaAuth(LDAPAuth):
         Returns:
             True or False
         """
-        if not check_reset_code(code):
-            return False
-
         username = self._get_username(user_id)
         payload = {'reset_code': code}
         result = self._proxy('POST',
                              self.generate_url(username,
-                                               'verify_password_reset'),
-                             payload)
-        return 'success' in result
+                                               'verify_password_reset'))
+        return result.get('success', False)
 
     def clear_reset_code(self, user_id):
         """Clears the reset code
@@ -168,39 +158,48 @@ class MozillaAuth(LDAPAuth):
         Returns:
             True if the change was successful, False otherwise
         """
+        #handled by sreg
         username = self._get_username(user_id)
-        result = self._proxy('DELETE',
-                             self.generate_url(username, 'password_reset'))
-        return 'success' in result
+        result = self._proxy('DELETE', self.generate_url(username,
+                                                         'password_reset'))
+        return result.get('success', False)
 
     def get_user_node(self, user_id, assign=True):
         if self.single_box:
             return None
 
-        username = self._get_username(user_id)
-        dn = self._get_dn(username)
-
-        # getting the list of primary nodes
-        with self._conn() as conn:
-            try:
-                res = conn.search_st(dn, ldap.SCOPE_BASE,
-                                     attrlist=['primaryNode'],
-                                     timeout=self.ldap_timeout)
-            except (ldap.TIMEOUT, ldap.SERVER_DOWN, ldap.OTHER), e:
-                #logger.debug('Could not get the user node in ldap')
-                raise BackendError(str(e))
-
-        res = res[0][1]
-
-        for node in res['primaryNode']:
-            node = node[len('weave:'):]
-            if node == '':
-                continue
-            # we want to return the URL
-            return '%s://%s/' % (self.nodes_scheme, node)
-
-        if not assign:
-            return None
+        node = super(MozillaAuth, self).get_user_node(user_id, assign=False)
+        if node is not None or assign is False:
+            return node
 
         result = self._proxy('GET', self.generate_url(username, 'node/weave'))
         return result.get('node')
+
+    def update_password(self, user_id, new_password,
+                        old_password=None, key=None):
+        """Change the user password.
+
+        Uses the admin bind or the user bind if the old password is provided.
+
+        Args:
+            user_id: user id
+            password: new password
+            old_password: old password of the user (optional)
+
+        Returns:
+            True if the change was successful, False otherwise
+        """
+        if old_password is not None:
+            return super(MozillaAuth, self).update_password(user_id,
+                                              password,
+                                              old_password=old_password)
+
+        if not key:
+            logger.error("Calling update password without password or key")
+            return False
+
+        payload = {'reset_code': key, 'password': password}
+        result = self._proxy('GET', self.generate_url(username, 'password'),
+                             payload)
+        return result.get('success', False)
+

@@ -314,14 +314,15 @@ class LDAPAuth(ResetCodeManager):
 
         return res == ldap.RES_MODIFY
 
-    def update_password(self, user_id, password, old_password=None):
+    def update_password(self, user_id, new_password,
+                        old_password=None, key=None):
         """Change the user password.
 
         Uses the admin bind or the user bind if the old password is provided.
 
         Args:
             user_id: user id
-            password: new password
+            new_password: new password
             old_password: old password of the user (optional)
 
         Returns:
@@ -331,6 +332,13 @@ class LDAPAuth(ResetCodeManager):
         user_dn = self._get_dn(user_name)
 
         if old_password is None:
+            if key:
+                #using a key, therefore we should check it
+                if self.verify_reset_code(user_id, key):
+                    self.clear_reset_code(user_id)
+                else:
+                    logger.error("bad key used for update password")
+                    return False
             # we will use admin auth
             dn = self.admin_user
             ldap_password = self.admin_password
@@ -340,7 +348,7 @@ class LDAPAuth(ResetCodeManager):
             ldap_password = old_password
             # we need a password
 
-        password_hash = ssha(password)
+        password_hash = ssha(new_password)
         user = [(ldap.MOD_REPLACE, 'userPassword', [password_hash])]
 
         with self._conn(dn, ldap_password) as conn:
