@@ -3,7 +3,7 @@
 %define version 0.2
 %define unmangled_version 0.2
 %define unmangled_version 0.2
-%define release 4
+%define release 5
 
 Summary: Services core tools
 Name: %{name}
@@ -16,7 +16,7 @@ BuildRoot: %{_tmppath}/%{pythonname}-%{version}-%{release}-buildroot
 Prefix: %{_prefix}
 BuildArch: noarch
 Vendor: Tarek Ziade <tarek@mozilla.com>
-Requires: nginx memcached gunicorn openldap-devel mysql-devel python26 python26-memcached python26-setuptools python26-webob python26-paste python26-pastedeploy python26-sqlalchemy python26-simplejson python26-routes python26-ldap python26-mysql-python
+Requires: nginx memcached gunicorn openldap-devel mysql-devel python26 python26-memcached python26-setuptools python26-webob python26-paste python26-pastedeploy python26-sqlalchemy python26-simplejson python26-routes python26-ldap python26-mysql-python python26-recaptcha
 Obsoletes: python26-synccore
 
 Url: https://hg.mozilla.org/services/server-core
@@ -34,6 +34,7 @@ Core library that provides these features:
 - Base WSGI application for Services servers
 - Error codes for Sync
 - Authentication back ends for Services
+- Captcha wrappers
 
 
 %prep
