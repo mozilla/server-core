@@ -3,7 +3,7 @@
 %define version 0.2
 %define unmangled_version 0.2
 %define unmangled_version 0.2
-%define release 4
+%define release 5
 
 Summary: Services core tools
 Name: %{name}
@@ -34,6 +34,7 @@ Core library that provides these features:
 - Base WSGI application for Services servers
 - Error codes for Sync
 - Authentication back ends for Services
+- Captcha wrappers
 
 
 %prep
