@@ -191,14 +191,14 @@ class MozillaAuth(LDAPAuth):
         """
         if old_password is not None:
             return super(MozillaAuth, self).update_password(user_id,
-                                              password,
+                                              new_password,
                                               old_password=old_password)
 
         if not key:
             logger.error("Calling update password without password or key")
             return False
 
-        payload = {'reset_code': key, 'password': password}
+        payload = {'reset_code': key, 'password': new_password}
         result = self._proxy('GET', self.generate_url(username, 'password'),
                              payload)
         return result.get('success', False)
