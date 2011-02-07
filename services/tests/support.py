@@ -81,6 +81,26 @@ class TestEnv(object):
         self.config = convert_config(config)
 
 
+def patch_captcha(valid=True):
+    """patches captcha for testing to automatically return true or false"""
+    from recaptcha.client import captcha
+
+    class Result(object):
+        is_valid = valid
+
+    def submit(*args, **kw):
+        return Result()
+
+    captcha.submit = submit
+
+    def displayhtml(key, use_ssl=False):
+        return """<form>
+             key is %s
+          </form>""" % key
+
+    captcha.displayhtml = displayhtml
+
+
 # non-class way of doing this
 def initenv(config=None):
     """Reads the config file and instanciates an auth and a storage.

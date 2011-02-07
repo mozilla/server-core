@@ -36,7 +36,8 @@
 import unittest
 import os
 
-from services.captcha import ServicesCaptcha, patch_captcha
+from services.captcha import ServicesCaptcha
+from services.tests.support import patch_captcha
 from services import logger
 from webob import Request
 

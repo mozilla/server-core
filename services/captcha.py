@@ -36,12 +36,18 @@
 
 from services import logger
 from services.util import BackendError
-from recaptcha.client import captcha
+try:
+    from recaptcha.client import captcha
+    _NO_CAPTCHA_LIB = False
+except ImportError:
+    _NO_CAPTCHA_LIB = True
 
 
 class ServicesCaptcha(object):
 
     def __init__(self, config):
+        if _NO_CAPTCHA_LIB:
+            raise ImportError('Recaptcha lib is not installed')
         self.use = config.get('use', False)
         self.private_key = config.get('private_key')
         self.public_key = config.get('public_key')
@@ -73,28 +79,10 @@ class ServicesCaptcha(object):
         </div>
         """
 
-    def form(self, template = CAPTCHA_TMPL):
+    def form(self, template=CAPTCHA_TMPL):
         """returns the captcha form"""
         if not self.use:
             return ""
 
         return template % captcha.displayhtml(self.public_key,
                                               use_ssl=self.use_ssl)
-
-def patch_captcha(valid=True):
-    """patches captcha for testing to automatically return true or false"""
-    class Result(object):
-        is_valid = valid
-
-    def submit(*args, **kw):
-        return Result()
-
-    captcha.submit = submit
-
-    def displayhtml(key, use_ssl=False):
-        return """<form>
-             key is %s
-          </form>""" % key
-
-    captcha.displayhtml = displayhtml
-
