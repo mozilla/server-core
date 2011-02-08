@@ -51,6 +51,8 @@ class Request(object):
 class AuthTool(DummyAuth):
 
     def authenticate_user(self, *args):
+        if args[0] == 'tarekbad':
+            return None
         return 1
 
 
@@ -83,3 +85,17 @@ class AuthenticationTestCase(unittest.TestCase):
                 {'HTTP_AUTHORIZATION': bad_token2})
         self.assertRaises(HTTPUnauthorized, auth.authenticate_user, req,
                           {})
+        # check a bad request to an invalid user.
+        req = Request('/1.0/tarekbad',
+                      {'HTTP_AUTHORIZATION': 'Basic ' +
+                       base64.b64encode('tarekbad:tarek'),
+                       'REQUEST_METHOD': 'TEST',
+                       'PATH_INFO': 'TEST'})
+        # the following options are required for cef dependency
+        self.assertRaises(HTTPUnauthorized, auth.authenticate_user, req,
+                          {'cef.version': '0.0',
+                           'cef.vendor': 'test',
+                           'cef.device_version': '0.0',
+                           'cef.product': 'test',
+                           'cef.file': 'test',
+                            }, 'tarekbad')

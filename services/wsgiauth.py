@@ -107,8 +107,7 @@ class Authentication(object):
 
             # if this is an email, hash it. Save the original for logging and
             #  debugging.
-            if "@" in user_name:
-                remote_user_original = user_name
+            remote_user_original = user_name
             try:
                 user_name = extract_username(user_name)
             except UnicodeError:
