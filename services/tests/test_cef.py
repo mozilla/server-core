@@ -43,57 +43,58 @@ from services import logger
 
 class TestWeaveLogger(unittest.TestCase):
 
-    def test_cef_logging(self):
-        # just make sure we escape "|" when appropriate
-        environ = {'REMOTE_ADDR': '127.0.0.1', 'HTTP_HOST': '127.0.0.1',
-                   'PATH_INFO': '/', 'REQUEST_METHOD': 'GET',
-                   'HTTP_USER_AGENT': 'MySuperBrowser'}
+    def setUp(self):
+        self.environ = {'REMOTE_ADDR': '127.0.0.1', 'HTTP_HOST': '127.0.0.1',
+                        'PATH_INFO': '/', 'REQUEST_METHOD': 'GET',
+                        'HTTP_USER_AGENT': 'MySuperBrowser'}
 
-        config = {'cef.version': '0', 'cef.vendor': 'mozilla',
-                  'cef.device_version': '3', 'cef.product': 'weave',
-                  'cef': True}
+        self.config = {'cef.version': '0', 'cef.vendor': 'mozilla',
+                       'cef.device_version': '3', 'cef.product': 'weave',
+                       'cef': True}
+        self.filename = self.config['cef.file'] = mkstemp()[1]
+        self._warn = []
 
-        filename = config['cef.file'] = mkstemp()[1]
+        def _warning(warn):
+            self._warn.append(warn)
 
-        try:
-            # should not fail
-            log_cef('xx|x', 5, environ, config)
-            with open(filename) as f:
+        self.old_logger = logger.warning
+        logger.warning = _warning
+
+    def tearDown(self):
+        if os.path.exists(self.filename):
+            os.remove(self.filename)
+        logger.warning = self.old_logger
+        self._warn[:] = []
+
+    def _log(self, name, severity, *args, **kw):
+        log_cef(name, severity, self.environ, self.config, *args, **kw)
+
+        if os.path.exists(self.filename):
+            with open(self.filename) as f:
                 content = f.read()
-        finally:
-            if os.path.exists(filename):
-                os.remove(filename)
 
-        self.assertEquals(len(content.split('|')), 9)
+            os.remove(self.filename)
+        else:
+            content = ''
+
+        return content
+
+    def test_cef_logging(self):
+        # should not fail
+        res = self._log('xx|x', 5)
+        self.assertEquals(len(res.split('|')), 10)
 
         # should not fail and be properly escaped
-        environ['HTTP_USER_AGENT'] = "|"
-        try:
-            # should not fail
-            log_cef('xxx', 5, environ, config)
-            with open(filename) as f:
-                content = f.read()
-        finally:
-            if os.path.exists(filename):
-                os.remove(filename)
+        self.environ['HTTP_USER_AGENT'] = "=|\\"
+        content = self._log('xxx', 5)
 
-        cs = 'cs1Label=requestClientApplication cs1=\| '
+        cs = 'cs1Label=requestClientApplication cs1=\=|\\\\ '
         self.assertTrue(cs in content)
 
         # should log.warn because extra keys shouldn't have pipes
-        _warn = []
-
-        def _warning(warn):
-            _warn.append(warn)
-
-        old = logger.warning
-        logger.warning = _warning
-        try:
-            log_cef('xxx', 5, environ, config, **{'ba|d': 1})
-        finally:
-            logger.warning = old
-
-        self.assertEqual('"ba|d" cannot contain a "|" or "=" char', _warn[0])
+        self._log('xxx', 5, **{'ba|d': 1})
+        self.assertEqual('The "ba|d" key contains illegal characters',
+                         self._warn[0])
 
     def test_cef_syslog(self):
         try:
@@ -101,18 +102,12 @@ class TestWeaveLogger(unittest.TestCase):
         except ImportError:
             return
 
-        environ = {'REMOTE_ADDR': '127.0.0.1', 'HTTP_HOST': '127.0.0.1',
-                   'PATH_INFO': '/', 'REQUEST_METHOD': 'GET',
-                   'HTTP_USER_AGENT': 'MySuperBrowser'}
+        self.config['cef.file'] = 'syslog'
+        self.config['cef.syslog.priority'] = 'ERR'
+        self.config['cef.syslog.facility'] = 'AUTH'
+        self.config['cef.syslog.options'] = 'PID,CONS'
 
-        config = {'cef.version': '0', 'cef.vendor': 'mozilla',
-                  'cef.device_version': '3', 'cef.product': 'weave',
-                  'cef': True, 'cef.file': 'syslog',
-                  'cef.syslog.priority': 'ERR',
-                  'cef.syslog.facility': 'AUTH',
-                  'cef.syslog.options': 'PID,CONS'}
-
-        log_cef('xx|x', 5, environ, config)
+        self._log('xx|x', 5)
 
         # XXX how to get the facility filename via an API ?
         # See http://bugs.python.org/issue10595
@@ -130,18 +125,13 @@ class TestWeaveLogger(unittest.TestCase):
         except ImportError:
             return
 
-        environ = {'REMOTE_ADDR': '127.0.0.1',
-                   'PATH_INFO': '/', 'REQUEST_METHOD': 'GET',
-                   'HTTP_USER_AGENT': 'MySuperBrowser2'}
+        self.environ['HTTP_USER_AGENT'] = 'MySuperBrowser2'
+        self.config['cef.file'] = 'syslog'
+        self.config['cef.syslog.priority'] = 'ERR'
+        self.config['cef.syslog.facility'] = 'AUTH'
+        self.config['cef.syslog.options'] = 'PID,CONS'
 
-        config = {'cef.version': '0', 'cef.vendor': 'mozilla',
-                  'cef.device_version': '3', 'cef.product': 'weave',
-                  'cef': True, 'cef.file': 'syslog',
-                  'cef.syslog.priority': 'ERR',
-                  'cef.syslog.facility': 'AUTH',
-                  'cef.syslog.options': 'PID,CONS'}
-
-        log_cef('xx|x', 5, environ, config)
+        self._log('xx|x', 5)
 
         # XXX how to get the facility filename via an API ?
         # See http://bugs.python.org/issue10595
@@ -154,46 +144,29 @@ class TestWeaveLogger(unittest.TestCase):
         self.assertTrue('MySuperBrowser2' in logs)
 
     def test_suser(self):
-        environ = {'REMOTE_ADDR': '127.0.0.1', 'HTTP_HOST': '127.0.0.1',
-                   'PATH_INFO': '/', 'REQUEST_METHOD': 'GET',
-                   'HTTP_USER_AGENT': 'MySuperBrowser'}
-
-        config = {'cef.version': '0', 'cef.vendor': 'mozilla',
-                  'cef.device_version': '3', 'cef.product': 'weave',
-                  'cef': True}
-
-        filename = config['cef.file'] = mkstemp()[1]
-
-        try:
-            # should not fail
-            log_cef('xx|x', 5, environ, config, username='me')
-            with open(filename) as f:
-                content = f.read()
-        finally:
-            if os.path.exists(filename):
-                os.remove(filename)
-
+        content = self._log('xx|x', 5, username='me')
         self.assertTrue('suser=me' in content)
 
     def test_custom_extensions(self):
-        environ = {'REMOTE_ADDR': '127.0.0.1', 'HTTP_HOST': '127.0.0.1',
-                   'PATH_INFO': '/', 'REQUEST_METHOD': 'GET',
-                   'HTTP_USER_AGENT': 'MySuperBrowser'}
-
-        config = {'cef.version': '0', 'cef.vendor': 'mozilla',
-                  'cef.device_version': '3', 'cef.product': 'weave',
-                  'cef': True}
-
-        filename = config['cef.file'] = mkstemp()[1]
-
-        try:
-            # should not fail
-            log_cef('xx|x', 5, environ, config, username='me',
-                    custom1='ok')
-            with open(filename) as f:
-                content = f.read()
-        finally:
-            if os.path.exists(filename):
-                os.remove(filename)
-
+        content = self._log('xx|x', 5, username='me',
+                            custom1='ok')
         self.assertTrue('custom1=ok' in content)
+
+    def test_too_big(self):
+        big = 'i' * 500
+        bigger = 'u' * 550
+        content = self._log('xx|x', 5, username='me',
+                            custom1='ok', big=big, bigger=bigger)
+        self.assertTrue('big=ii' in content)
+        self.assertFalse('bigger=uu' in content)
+        self.assertTrue('CEF Message too big' in self._warn[0])
+
+    def test_conversions(self):
+        content = self._log('xx\nx|xx\rx', 5, username='me',
+                            ext1='ok=ok', ext2='ok\\ok')
+        self.assertTrue('xx\\\nx\\|xx\\\rx' in content)
+        self.assertTrue("ext1=ok\\=ok ext2=ok\\\\ok" in content)
+
+    def test_default_signature(self):
+        content = self._log('xx', 5)
+        self.assertTrue('xx|xx' in content)

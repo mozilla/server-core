@@ -82,6 +82,7 @@ from services.util import get_source_ip
 
 
 _HOST = socket.gethostname()
+_MAXLEN = 1024
 
 # pre-defined signatures
 AUTH_FAILURE = 'AuthFail'
@@ -98,7 +99,9 @@ _CEF_FORMAT = ('%(date)s %(host)s CEF:%(version)s|%(vendor)s|%(product)s|'
 
 _EXTENSIONS = ['cs1Label', 'cs1', 'requestMethod', 'request', 'src', 'dest',
                'suser']
-_FIND_PIPE = re.compile(r'([|\\=])')
+_PREFIX = re.compile(r'([|\\\r\n])')
+_EXTENSION = re.compile(r'([\\=])')
+_KEY = re.compile(r'^[a-zA-Z0-9_\-.]+$')
 
 
 def _to_str(data):
@@ -108,10 +111,17 @@ def _to_str(data):
     return str(data)
 
 
-def _convert(data):
+def _convert_prefix(data):
     """Escapes | and = and convert to utf8 string"""
     data = _to_str(data)
-    return _FIND_PIPE.sub(r'\\\1', data)
+    return _PREFIX.sub(r'\\\1', data)
+
+
+def _convert_ext(data):
+    """Escapes | and = and convert to utf8 string"""
+    data = _to_str(data)
+    return _EXTENSION.sub(r'\\\1', data)
+
 
 
 _LOG_OPENED = None
@@ -159,36 +169,48 @@ def _str2facility(value):
     return _SYSLOG_FACILITY[value.strip()]
 
 
-def log_cef(message, severity, environ, config, username='none',
-            signature=AUTH_FAILURE, **kw):
+def _check_key(key):
+    if _KEY.match(key) is not None:
+        return key
+    msg = 'The "%s" key contains illegal characters' % key
+    logger.warning(msg)
+
+    # replacing illegal characters with a '?'
+    return _KEY.sub('?', key)
+
+
+def log_cef(name, severity, environ, config, username='none',
+            signature=None, **kw):
     """Creates a CEF record, and emit it in syslog or another file.
 
     Args:
-        - message: message to log
+        - name: name to log
         - severity: integer from 0 to 10
         - environ: the WSGI environ object
         - config: configuration dict
-        - signature: CEF signature code
-        - username: user name
+        - signature: CEF signature code - defaults to name value
+        - username: user name - defaults to 'none'
         - extra keywords: extra keys used in the CEF extension
     """
     # XXX might want to remove the request dependency here
     # so this module is standalone
     from services.util import filter_params
-
-    signature = _convert(signature)
-    name = _convert(message)
-    severity = _convert(severity)
+    name = _convert_prefix(name)
+    if signature is None:
+        signature = name
+    else:
+        signature = _convert_prefix(signature)
+    severity = _convert_prefix(severity)
     config = filter_params('cef', config)
 
     source = get_source_ip(environ)
 
     fields = {'severity': severity,
               'source': source,
-              'method': _convert(environ['REQUEST_METHOD']),
-              'url': _convert(environ['PATH_INFO']),
-              'dest': _convert(environ.get('HTTP_HOST', u'none')),
-              'user_agent': _convert(environ.get('HTTP_USER_AGENT', u'none')),
+              'method': _convert_ext(environ['REQUEST_METHOD']),
+              'url': _convert_ext(environ['PATH_INFO']),
+              'dest': _convert_ext(environ.get('HTTP_HOST', u'none')),
+              'user_agent': _convert_ext(environ.get('HTTP_USER_AGENT', u'none')),
               'signature': signature,
               'name': name,
               'version': config['version'],
@@ -201,27 +223,40 @@ def log_cef(message, severity, environ, config, username='none',
 
     # make sure we don't have a | anymore in regular fields
     for key, value in list(kw.items()):
-        if len(_FIND_PIPE.findall(key)) == 0:
+        new_key = _check_key(key)
+        if new_key == key:
             continue
-        msg = '"%s" cannot contain a "|" or "=" char' % key
-        logger.warning(msg)
-
-        # replacing pipes with a '?'
-        kw[_FIND_PIPE.sub('?', key)] = value
+        kw[new_key] = value
         del kw[key]
 
     # overriding with provided datas
     fields.update(kw)
 
-    # adding custom extensions
-    cef = _CEF_FORMAT
-    custom_ext = ['%s=%%(%s)s' % (key, key) for key in kw
-                  if key not in _EXTENSIONS]
-    if len(custom_ext) > 0:
-        cef += ' %s' % ' '.join(custom_ext)
+    # resulting message
+    msg = _CEF_FORMAT % fields
 
-    # building the message
-    msg = cef % fields
+    # adding custom extensions
+    # sorting by size
+    extensions = [(len(str(value)), len(key), key, value)
+                    for key, value in kw.items()
+                  if key not in _EXTENSIONS]
+    extensions.sort()
+
+    msg_len = len(msg)
+
+    for value_len, key_len, key, value in extensions:
+        added_len = value_len + key_len + 2
+        value = _convert_ext(value)
+        key = _check_key(key)
+
+        if msg_len + added_len > _MAXLEN:
+            # msg is too big.
+            warn = 'CEF Message too big. %s %s' % (msg, str(kw.items()))
+            logger.warning(warn)
+            break
+
+        msg += ' %s=%s' % (key, value)
+        msg_len += added_len
 
     if config['file'] == 'syslog':
         if not SYSLOG:
