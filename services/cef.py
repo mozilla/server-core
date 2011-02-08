@@ -123,7 +123,6 @@ def _convert_ext(data):
     return _EXTENSION.sub(r'\\\1', data)
 
 
-
 _LOG_OPENED = None
 
 # will make log writing atomic per-process
@@ -210,7 +209,8 @@ def log_cef(name, severity, environ, config, username='none',
               'method': _convert_ext(environ['REQUEST_METHOD']),
               'url': _convert_ext(environ['PATH_INFO']),
               'dest': _convert_ext(environ.get('HTTP_HOST', u'none')),
-              'user_agent': _convert_ext(environ.get('HTTP_USER_AGENT', u'none')),
+              'user_agent': _convert_ext(environ.get('HTTP_USER_AGENT',
+                                                     u'none')),
               'signature': signature,
               'name': name,
               'version': config['version'],

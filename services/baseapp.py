@@ -36,7 +36,6 @@
 """
 Application entry point.
 """
-import time
 import traceback
 import pprint
 import StringIO

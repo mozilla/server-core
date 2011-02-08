@@ -286,6 +286,7 @@ class TestUtil(unittest.TestCase):
         app = CatchErrorMiddleware(BadClass(), hook=hello)
 
         errs = []
+
         def _error(err):
             errs.append(err)
 
