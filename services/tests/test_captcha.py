@@ -35,6 +35,12 @@
 # ***** END LICENSE BLOCK *****
 import unittest
 
+try:
+    from recaptcha.client import captcha   # NOQA
+    _NO_CAPTCHA_LIB = False
+except ImportError:
+    _NO_CAPTCHA_LIB = True
+
 from services.captcha import ServicesCaptcha
 from services.tests.support import patch_captcha
 from webob import Request
@@ -45,7 +51,12 @@ class TestCaptcha(unittest.TestCase):
     def test_captcha(self):
         key = 'foobarbaz'
         config = {'use': True, 'private_key': 'a', 'public_key': key}
-        captcha = ServicesCaptcha(config)
+
+        if _NO_CAPTCHA_LIB:
+            self.assertRaises(ImportError, ServicesCaptcha, config)
+            return
+
+        captcha = ServicesCaptcha(config)   # NOQA
 
         req = Request.blank('/')
         req.method = 'POST'
