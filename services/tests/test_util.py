@@ -49,7 +49,7 @@ from services.util import (convert_config, bigint2time,
                            valid_password, json_response,
                            newlines_response, whoisi_response, text_response,
                            extract_username, get_url, proxy,
-                           get_source_ip, CatchErrorMiddleware)
+                           get_source_ip, CatchErrorMiddleware, round_time)
 
 
 _EXTRA = """\
@@ -284,10 +284,41 @@ class TestUtil(unittest.TestCase):
             pass
 
         app = CatchErrorMiddleware(BadClass(), hook=hello)
+
+        errs = []
+        def _error(err):
+            errs.append(err)
+
+        app.logger.error = _error
+
         old_std = sys.stdout
         sys.stdout = StringIO.StringIO()
         try:
             result = app({}, fake_start_response)
         finally:
             sys.stdout = old_std
+
         self.assertEqual(result[0], "hello")
+        self.assertEqual(len(errs), 1)
+
+    def test_round_time(self):
+
+        # returns a two-digits decimal of the current time
+        res = round_time()
+        self.assertEqual(len(str(res).split('.')[-1]), 2)
+
+        # can take a timestamp
+        res = round_time(129084.198271987)
+        self.assertEqual(str(res), '129084.20')
+
+        # can take a str timestamp
+        res = round_time('129084.198271987')
+        self.assertEqual(str(res), '129084.20')
+
+        # bad values raise ValueErrors
+        self.assertRaises(ValueError, round_time, 'bleh')
+        self.assertRaises(ValueError, round_time, object())
+
+        # changing the precision
+        res = round_time(129084.198271987, precision=3)
+        self.assertEqual(str(res), '129084.198')

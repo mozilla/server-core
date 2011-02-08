@@ -54,7 +54,7 @@ import os
 import logging
 import urllib2
 from urlparse import urlparse, urlunparse
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import time
 
 from webob.exc import HTTPBadRequest
@@ -155,14 +155,27 @@ def bigint2time(value):
     return Decimal(value) / 100
 
 
-def round_time(value=None):
+def round_time(value=None, precision=2):
     """Transforms a timestamp into a two digits Decimal.
 
-    If value is None, uses time.time()
+    Arg:
+        value: timestamps representation - float or str.
+        If None, uses time.time()
+
+        precision: number of digits to keep. defaults to 2.
+
+    Return:
+        A Decimal two-digits instance.
     """
     if value is None:
         value = time.time()
-    return Decimal(str(value)).quantize(Decimal('1.00'))
+    if not isinstance(value, str):
+        value = str(value)
+    try:
+        digits = '0' * precision
+        return Decimal(value).quantize(Decimal('1.' + digits))
+    except InvalidOperation:
+        raise ValueError(value)
 
 
 _SALT_LEN = 8
