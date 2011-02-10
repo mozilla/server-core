@@ -16,7 +16,7 @@ BuildRoot: %{_tmppath}/%{pythonname}-%{version}-%{release}-buildroot
 Prefix: %{_prefix}
 BuildArch: noarch
 Vendor: Tarek Ziade <tarek@mozilla.com>
-Requires: nginx memcached gunicorn openldap-devel mysql-devel python26 python26-memcached python26-setuptools python26-webob python26-paste python26-pastedeploy python26-sqlalchemy python26-simplejson python26-routes python26-ldap python26-mysql-python python26-recaptcha-client
+Requires: nginx memcached gunicorn openldap-devel mysql-devel python26 python26-memcached python26-setuptools python26-webob python26-paste python26-pastedeploy python26-sqlalchemy python26-simplejson python26-routes python26-ldap python26-mysql-python
 Obsoletes: python26-synccore
 
 Url: https://hg.mozilla.org/services/server-core
