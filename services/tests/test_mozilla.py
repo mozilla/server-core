@@ -61,10 +61,12 @@ def bad_reset_code_resp():
 class TestLDAPSQLAuth(unittest.TestCase):
 
     def setUp(self):
-        patch()
+        if LDAP:
+            patch()
 
     def tearDown(self):
-        unpatch()
+        if LDAP:
+            unpatch()
 
     def test_mozilla_auth(self):
         if not LDAP:

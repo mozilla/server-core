@@ -128,10 +128,12 @@ if LDAP:
 class TestLDAPSQLAuth(unittest.TestCase):
 
     def setUp(self):
-        patch()
+        if LDAP:
+            patch()
 
     def tearDown(self):
-        unpatch()
+        if LDAP:
+            unpatch()
 
     def test_ldap_auth(self):
         if not LDAP:
