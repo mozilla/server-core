@@ -145,14 +145,16 @@ def time2bigint(value):
     return int(value * 100)
 
 
-def bigint2time(value):
+def bigint2time(value, precision=2):
     """Decodes a big int into a timestamp.
 
     The returned timestamp is a 2 digits Decimal.
     """
     if value is None:   # unexistant
         return None
-    return Decimal(value) / 100
+    res = Decimal(value) / 100
+    digits = '0' * precision
+    return res.quantize(Decimal('1.' + digits))
 
 
 def round_time(value=None, precision=2):

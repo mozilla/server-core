@@ -40,82 +40,12 @@ from wsgi_intercept.urllib2_intercept import install_opener
 install_opener()
 
 try:
-    import ldap
-    from services.auth.ldappool import StateConnector
-    from services.auth.ldapsql import LDAPAuth
     from services.auth.mozilla import MozillaAuth
+    # using the patching from test_ldapsqlauth
+    from services.tests.test_ldapsqlauth import patch, unpatch
     LDAP = True
 except ImportError:
     LDAP = False
-
-if LDAP:
-    # memory ldap connector for the tests
-
-    class MemoryStateConnector(StateConnector):
-
-        users = {'uid=tarek,ou=users,dc=mozilla':
-                {'uidNumber': ['1'],
-                 'uid': ['tarek'],
-                 'account-enabled': ['Yes'],
-                 'mail': ['tarek@mozilla.com'],
-                 'cn': ['tarek']},
-                 'cn=admin,dc=mozilla': {'cn': ['admin'],
-                 'mail': ['admin'],
-                 'uid': ['admin'],
-                 'uidNumber': ['100']}}
-
-        def __init__(self):
-            pass
-
-        def simple_bind_s(self, who, *args):
-            self.connected = True
-            self.who = who
-
-        def search_st(self, dn, *args, **kw):
-            if dn in self.users:
-                return [(dn, self.users[dn])]
-            elif dn in ('ou=users,dc=mozilla', 'dc=mozilla', 'md5'):
-                key, field = kw['filterstr'][1:-1].split('=')
-                for dn_, value in self.users.items():
-                    if value[key][0] != field:
-                        continue
-                    return [(dn_, value)]
-            raise ldap.NO_SUCH_OBJECT
-
-        def add_s(self, dn, user):
-            self.users[dn] = {}
-            for key, value in user:
-                if not isinstance(value, list):
-                    value = [value]
-                self.users[dn][key] = value
-            return ldap.RES_ADD, ''
-
-        def modify_s(self, dn, user):
-            if dn in self.users:
-                for type_, key, value in user:
-                    if not isinstance(value, list):
-                        value = [value]
-                    self.users[dn][key] = value
-            return ldap.RES_MODIFY, ''
-
-        def delete_s(self, dn, **kw):
-            if dn in self.users:
-                del self.users[dn]
-            elif dn in ('ou=users,dc=mozilla', 'md5'):
-                key, field = kw['filterstr'][1:-1].split('=')
-                for dn_, value in self.users.items():
-                    if value[key][0] == field:
-                        del value[key]
-                        return ldap.RES_DELETE, ''
-            return ldap.RES_DELETE, ''
-
-    from contextlib import contextmanager
-
-    @contextmanager
-    def _conn(self, bind=None, password=None):
-        yield MemoryStateConnector()
-
-    LDAPAuth._conn = _conn
 
 
 # returns a body that has all the responses we need
@@ -130,6 +60,12 @@ def bad_reset_code_resp():
 
 class TestLDAPSQLAuth(unittest.TestCase):
 
+    def setUp(self):
+        patch()
+
+    def tearDown(self):
+        unpatch()
+
     def test_mozilla_auth(self):
         if not LDAP:
             return
@@ -140,7 +76,6 @@ class TestLDAPSQLAuth(unittest.TestCase):
 
         auth.create_user('tarek', 'tarek', 'tarek@ziade.org')
         uid = auth.get_user_id('tarek')
-
         auth_uid = auth.authenticate_user('tarek', 'tarek')
         self.assertEquals(auth_uid, uid)
 

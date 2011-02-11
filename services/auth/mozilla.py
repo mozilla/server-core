@@ -35,13 +35,11 @@
 # ***** END LICENSE BLOCK *****
 """ Mozilla Authentication using a two-tier system
 """
-
-import ldap
 import simplejson as json
 import urlparse
 
 from urllib import urlencode
-from services.util import check_reset_code, BackendError, get_url
+from services.util import BackendError, get_url
 from services.auth.ldapsql import LDAPAuth
 from services import logger
 
@@ -143,6 +141,7 @@ class MozillaAuth(LDAPAuth):
             True or False
         """
         username = self._get_username(user_id)
+        # XXX never used
         payload = {'reset_code': code}
         result = self._proxy('POST',
                              self.generate_url(username,
@@ -172,6 +171,7 @@ class MozillaAuth(LDAPAuth):
         if node is not None or assign is False:
             return node
 
+        username = self._get_username(user_id)
         result = self._proxy('GET', self.generate_url(username, 'node/weave'))
         return result.get('node')
 
@@ -199,7 +199,7 @@ class MozillaAuth(LDAPAuth):
             return False
 
         payload = {'reset_code': key, 'password': new_password}
+        username = self._get_username(user_id)
         result = self._proxy('GET', self.generate_url(username, 'password'),
                              payload)
         return result.get('success', False)
-

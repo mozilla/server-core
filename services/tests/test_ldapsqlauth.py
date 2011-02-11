@@ -34,6 +34,9 @@
 #
 # ***** END LICENSE BLOCK *****
 import unittest
+
+from services.util import BackendError, BackendTimeoutError
+
 try:
     import ldap
     from services.auth.ldappool import StateConnector
@@ -109,10 +112,26 @@ if LDAP:
     def _conn(self, bind=None, password=None):
         yield MemoryStateConnector()
 
-    LDAPAuth._conn = _conn
+    PATCHED = None
+
+    def patch():
+        global PATCHED
+        PATCHED = LDAPAuth._conn
+        LDAPAuth._conn = _conn
+
+    def unpatch():
+        global PATCHED
+        LDAPAuth._conn = PATCHED
+        PATCHED = None
 
 
 class TestLDAPSQLAuth(unittest.TestCase):
+
+    def setUp(self):
+        patch()
+
+    def tearDown(self):
+        unpatch()
 
     def test_ldap_auth(self):
         if not LDAP:
@@ -201,7 +220,7 @@ class TestLDAPSQLAuth(unittest.TestCase):
         self.assertTrue(auth.update_password(1, 'xxxx', 'tarek'))
 
     def _create_user(self, auth, user_name, password, email):
-        from services.auth.ldapsql import *   # NOQA
+        from services.auth.ldapsql import ssha, random, sha1
         user_name = str(user_name)
         user_id = auth._get_next_user_id()
         password_hash = ssha(password)
@@ -215,7 +234,7 @@ class TestLDAPSQLAuth(unittest.TestCase):
                 'primaryNode': 'weave:',
                 'rescueNode': 'weave:',
                 'userPassword': password_hash,
-                'account-enabled': 'XXXX',
+                'account-enabled': ['Yes'],
                 'mail': email,
                 'mail-verified': key,
                 'objectClass': ['dataStore', 'inetOrgPerson']}
@@ -278,3 +297,29 @@ class TestLDAPSQLAuth(unittest.TestCase):
                              ('uid=tarek,ou=users,dc=mozilla', 'tarek'))
         finally:
             auth._conn = auth._conn2
+
+    def test_get_user_id_fail(self):
+        if not LDAP:
+            return
+
+        auth = LDAPAuth('ldap://localhost', 'sqlite:///:memory:',
+                        users_base_dn='dc=mozilla',
+                        check_account_state=False)
+
+        self._create_user(auth, 'tarek', 'tarek', 'tarek@ziade.org')
+        uid = auth.get_user_id('tarek')
+        self.assertTrue(uid is not None)
+
+        # now with a search_st failure
+        from ldap import TIMEOUT
+
+        old = MemoryStateConnector.search_st
+
+        def _search(*arg, **kw):
+            raise TIMEOUT
+
+        MemoryStateConnector.search_st = _search
+        try:
+            self.assertRaises(BackendError, auth.get_user_id, 'tarek')
+        finally:
+            MemoryStateConnector.search_st = old

@@ -135,6 +135,17 @@ class TestUtil(unittest.TestCase):
     def test_bigint2time(self):
         self.assertEquals(bigint2time(None), None)
 
+        # make sure we always get two-digits Decimals
+        # even if the time ms is 0
+        def check(value):
+            res = bigint2time(time2bigint(round_time(value)))
+            res = str(res)
+            self.assertTrue('.' in res)
+            self.assertEqual(len(str(res).split('.')[-1]), 2)
+
+        for value in (1297417122.0, 1297417122.1, 97417122.18765):
+            check(value)
+
     def test_time2bigint(self):
         now = time.time()
         two_digits = bigint2time(time2bigint(now))

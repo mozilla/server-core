@@ -123,7 +123,7 @@ class LDAPAuth(ResetCodeManager):
         else:
             engine = None
 
-        ResetCodeManager.__init__(self, engine)
+        ResetCodeManager.__init__(self, engine, create_tables=create_tables)
 
     def _conn(self, bind=None, passwd=None):
         return self.pool.connection(bind, passwd)
@@ -181,7 +181,7 @@ class LDAPAuth(ResetCodeManager):
                 user = conn.search_st(dn, scope, filterstr=filter,
                                       attrlist=['uidNumber'],
                                       timeout=self.ldap_timeout)
-            except (ldap.TIMEOUT, ldap.ERROR, ldap.OTHER), e:
+            except (ldap.TIMEOUT, ldap.OTHER), e:
                 logger.debug('Could not get the user id from ldap.')
                 raise BackendError(str(e))
             except ldap.NO_SUCH_OBJECT:
