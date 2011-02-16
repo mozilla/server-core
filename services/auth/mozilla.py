@@ -200,6 +200,6 @@ class MozillaAuth(LDAPAuth):
 
         payload = {'reset_code': key, 'password': new_password}
         username = self._get_username(user_id)
-        result = self._proxy('GET', self.generate_url(username, 'password'),
+        result = self._proxy('POST', self.generate_url(username, 'password'),
                              payload)
         return result.get('success', False)
