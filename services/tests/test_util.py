@@ -61,6 +61,17 @@ thing = ok
 """
 
 
+class FakeResult(object):
+    headers = {}
+    body = '{}'
+
+    def getcode(self):
+        return 200
+
+    def read(self):
+        return self.body
+
+
 class TestUtil(unittest.TestCase):
 
     def setUp(self):
@@ -71,29 +82,17 @@ class TestUtil(unittest.TestCase):
         urllib2.urlopen = self.oldopen
 
     def _urlopen(self, req, timeout=None):
-        # mimics urlopen
-        class FakeResult(object):
-            headers = {}
-            body = '{}'
-
-            def getcode(self):
-                return 200
-
-            def read(self):
-                return self.body
-
         url = req.get_full_url()
         if url == 'impossible url':
             raise ValueError()
         if url == 'http://dwqkndwqpihqdw.com':
             msg = 'Name or service not known'
             raise urllib2.URLError(socket.gaierror(-2, msg))
-        if url == 'http://google.com':
+
+        if url in ('http://google.com', 'http://goodauth'):
             return FakeResult()
         if url == 'http://badauth':
             raise urllib2.HTTPError(url, 401, '', {}, None)
-        if url == 'http://goodauth':
-            return FakeResult()
         if url == 'http://timeout':
             raise urllib2.URLError(socket.timeout())
         if url == 'http://error':

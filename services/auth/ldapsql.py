@@ -47,7 +47,7 @@ from sqlalchemy.sql import select, insert, update, and_
 
 from services.util import BackendError, ssha
 from services.auth import NodeAttributionError
-from services.auth.ldappool import ConnectionPool
+from services.auth.ldappool import ConnectionPool, StateConnector
 from services.auth.resetcode import ResetCodeManager
 from services import logger
 
@@ -90,7 +90,8 @@ class LDAPAuth(ResetCodeManager):
                  users_base_dn=None, pool_size=100, pool_recycle=3600,
                  reset_on_return=True, single_box=False, ldap_timeout=-1,
                  nodes_scheme='https', check_account_state=True,
-                 create_tables=True, ldap_pool_size=10, **kw):
+                 create_tables=True, ldap_pool_size=10,
+                 connector_cls=StateConnector, **kw):
         self.check_account_state = check_account_state
         self.ldapuri = ldapuri
         self.sqluri = sqluri
@@ -107,7 +108,8 @@ class LDAPAuth(ResetCodeManager):
         # by default, the ldap connections use the bind user
         self.pool = ConnectionPool(ldapuri, bind_user, bind_password,
                                    use_tls=use_tls, timeout=ldap_timeout,
-                                   size=ldap_pool_size)
+                                   size=ldap_pool_size,
+                                   connector_cls=connector_cls)
         sqlkw = {'pool_size': int(pool_size),
                  'pool_recycle': int(pool_recycle),
                  'logging_name': 'weaveserver'}
@@ -127,6 +129,9 @@ class LDAPAuth(ResetCodeManager):
 
     def _conn(self, bind=None, passwd=None):
         return self.pool.connection(bind, passwd)
+
+    def _purge_conn(self, bind, passwd=None):
+        self.pool.purge(bind, passwd=None)
 
     @classmethod
     def get_name(self):
@@ -358,6 +363,7 @@ class LDAPAuth(ResetCodeManager):
                 logger.debug('Could not update the password in ldap.')
                 raise BackendError(str(e))
 
+        self._purge_conn(user_dn, new_password)
         return res == ldap.RES_MODIFY
 
     def delete_user(self, user_id, password=None):
@@ -387,6 +393,7 @@ class LDAPAuth(ResetCodeManager):
         except ldap.INVALID_CREDENTIALS:
             return False
 
+        self._purge_conn(dn)
         return res == ldap.RES_DELETE
 
     def get_user_node(self, user_id, assign=True):

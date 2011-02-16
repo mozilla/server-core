@@ -82,7 +82,8 @@ class ConnectionPool(object):
     """
 
     def __init__(self, uri, bind=None, passwd=None, size=10, retry_max=3,
-                 retry_delay=.1, use_tls=False, single_box=False, timeout=-1):
+                 retry_delay=.1, use_tls=False, single_box=False, timeout=-1,
+                 connector_cls=StateConnector):
         self._pool = []
         self.size = size
         self.retry_max = retry_max
@@ -93,9 +94,27 @@ class ConnectionPool(object):
         self._pool_lock = RLock()
         self.use_tls = False
         self.timeout = timeout
+        self.connector_cls = connector_cls
 
     def __len__(self):
         return len(self._pool)
+
+    def _match(self, bind, passwd):
+        with self._pool_lock:
+            for conn in self._pool:
+                if conn.active:
+                    continue
+
+                # any connection w/ no creds matches
+                if conn.who is None:
+                    conn.active = True
+                    return conn
+
+                # we found a connector for this bind, that can be used
+                if conn.who == bind and conn.cred == passwd:
+                    conn.active = True
+                    return conn
+        return None
 
     def _get_connection(self, bind=None, passwd=None):
         if bind is None:
@@ -103,27 +122,24 @@ class ConnectionPool(object):
         if passwd is None:
             passwd = self.passwd
 
-        with self._pool_lock:
-            for conn in self._pool:
-                if not conn.active:
-                    if (conn.who is None or
-                        (conn.who == bind and conn.cred == passwd)):
-                        # we found a connector for this bind, that can be used
-                        conn.active = True
-                        return conn
+        # let's try to recycle an existing one
+        conn = self._match(bind, passwd)
+        if conn is not None:
+            return conn
 
         # the pool is full
         if len(self._pool) >= self.size:
             raise MaxConnectionReachedError(self.uri)
 
-        # we need to create a connector
-        conn = StateConnector(self.uri, retry_max=self.retry_max,
-                              retry_delay=self.retry_delay)
+        # we need to create a new connector
+        conn = self.connector_cls(self.uri, retry_max=self.retry_max,
+                                  retry_delay=self.retry_delay)
         conn.timeout = self.timeout
 
         if self.use_tls:
             conn.start_tls_s()
 
+        # let's bind
         if bind is not None:
             tries = 0
             connected = False
@@ -184,3 +200,13 @@ class ConnectionPool(object):
             yield conn
         finally:
             self._release_connection(conn)
+
+    def purge(self, bind, passwd=None):
+        with self._pool_lock:
+            for conn in list(self._pool):
+                if conn.who != bind:
+                    continue
+                if passwd is not None and conn.cred == passwd:
+                    continue
+                # let's drop it
+                self._pool.remove(conn)

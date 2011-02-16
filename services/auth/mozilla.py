@@ -142,7 +142,7 @@ class MozillaAuth(LDAPAuth):
         """
         username = self._get_username(user_id)
         # XXX never used
-        payload = {'reset_code': code}
+        #payload = {'reset_code': code}
         result = self._proxy('POST',
                              self.generate_url(username,
                                                'verify_password_reset'))

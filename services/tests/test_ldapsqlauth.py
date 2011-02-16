@@ -45,28 +45,62 @@ try:
 except ImportError:
     LDAP = False
 
+from services.util import validate_password, ssha
+
+
 if LDAP:
     # memory ldap connector for the tests
+    users = {'uid=adminuser,ou=users,dc=mozilla':
+
+            {'uidNumber': ['-1'],
+                'userPassword': [ssha('admin')],
+                'uid': ['adminuser'],
+                'account-enabled': ['Yes'],
+                'mail': ['tarek@mozilla.com'],
+                'cn': ['tarek'],
+                'primaryNode': ['weave:'],
+                'rescueNode': ['weave:'],
+                },
+
+            'uid=binduser,ou=users,dc=mozilla':
+
+            {'uidNumber': ['0'],
+                'userPassword': [ssha('bind')],
+                'uid': ['binduser'],
+                'account-enabled': ['Yes'],
+                'mail': ['tarek@mozilla.com'],
+                'cn': ['tarek'],
+                'primaryNode': ['weave:'],
+                'rescueNode': ['weave:'],
+                },
+
+            }
 
     class MemoryStateConnector(StateConnector):
 
-        users = {'uid=tarek,ou=users,dc=mozilla':
-                {'uidNumber': ['1'],
-                 'uid': ['tarek'],
-                 'account-enabled': ['Yes'],
-                 'mail': ['tarek@mozilla.com'],
-                 'cn': ['tarek']},
-                 'cn=admin,dc=mozilla': {'cn': ['admin'],
-                 'mail': ['admin'],
-                 'uid': ['admin'],
-                 'uidNumber': ['100']}}
+        users = users
 
-        def __init__(self):
-            pass
+        def __init__(self, uri, bind=None, passwd=None, **kw):
+            if bind is not None and passwd is not None:
+                self.simple_bind_s(bind, passwd)
+            self.uri = uri
+            self._next_id = 30
 
-        def simple_bind_s(self, who, *args):
+        def __repr__(self):
+            return '<%s - %s>' % (self.who, self.cred)
+
+        def simple_bind_s(self, who, passwd):
+            if who not in self.users:
+                raise ldap.NO_SUCH_OBJECT(who)
+
+            user = self.users[who]
+            pass_ = user['userPassword'][0]
+            if not validate_password(passwd, pass_):
+                raise ldap.INVALID_CREDENTIALS(who, passwd)
+
             self.connected = True
             self.who = who
+            self.cred = passwd
 
         def search_st(self, dn, *args, **kw):
             if dn in self.users:
@@ -74,17 +108,25 @@ if LDAP:
             elif dn in ('ou=users,dc=mozilla', 'dc=mozilla', 'md5'):
                 key, field = kw['filterstr'][1:-1].split('=')
                 for dn_, value in self.users.items():
+                    if key not in value:
+                        raise Exception(value)
                     if value[key][0] != field:
                         continue
                     return [(dn_, value)]
             raise ldap.NO_SUCH_OBJECT
 
         def add_s(self, dn, user):
+            if dn in self.users:
+                raise Exception('%r already exists' % dn)
             self.users[dn] = {}
             for key, value in user:
                 if not isinstance(value, list):
                     value = [value]
                 self.users[dn][key] = value
+
+            if 'uidNumber' not in self.users[dn]:
+                self.users[dn]['uidNumber'] = [self._next_id]
+                self._next_id += 1
             return ldap.RES_ADD, ''
 
         def modify_s(self, dn, user):
@@ -106,42 +148,36 @@ if LDAP:
                         return ldap.RES_DELETE, ''
             return ldap.RES_DELETE, ''
 
-    from contextlib import contextmanager
 
-    @contextmanager
-    def _conn(self, bind=None, password=None):
-        yield MemoryStateConnector()
-
-    PATCHED = None
-
-    def patch():
-        global PATCHED
-        PATCHED = LDAPAuth._conn
-        LDAPAuth._conn = _conn
-
-    def unpatch():
-        global PATCHED
-        LDAPAuth._conn = PATCHED
-        PATCHED = None
+_NEXT = 0
 
 
 class TestLDAPSQLAuth(unittest.TestCase):
 
-    def setUp(self):
-        if LDAP:
-            patch()
+    def _next_id(self):
+        global _NEXT
+        _NEXT += 1
+        return _NEXT
 
-    def tearDown(self):
-        if LDAP:
-            unpatch()
+    def _get_auth(self, **kw):
+        auth = LDAPAuth('ldap://localhost', 'sqlite:///:memory:',
+                        create_tables=True,
+                        admin_user='uid=adminuser,ou=users,dc=mozilla',
+                        admin_password='admin',
+                        bind_user='uid=binduser,ou=users,dc=mozilla',
+                        bind_password='bind',
+                        connector_cls=MemoryStateConnector,
+                        **kw)
+        auth._get_next_user_id = self._next_id
+        return auth
 
     def test_ldap_auth(self):
         if not LDAP:
             return
-        auth = LDAPAuth('ldap://localhost',
-                        'sqlite:///:memory:')
 
-        auth.create_user('tarek', 'tarek', 'tarek@ziade.org')
+        auth = self._get_auth()
+        if auth.get_user_id('tarek') is None:
+            auth.create_user('tarek', 'tarek', 'tarek@ziade.org')
         uid = auth.get_user_id('tarek')
 
         auth_uid = auth.authenticate_user('tarek', 'tarek')
@@ -176,8 +212,7 @@ class TestLDAPSQLAuth(unittest.TestCase):
             return
 
         # let's set up some nodes in the SQL DB
-        auth = LDAPAuth('ldap://localhost',
-                        'sqlite:///:memory:')
+        auth = self._get_auth()
 
         sql = ('insert into available_nodes '
                '(node, available_assignments, actives, downed) '
@@ -189,15 +224,15 @@ class TestLDAPSQLAuth(unittest.TestCase):
 
             auth._engine.execute(sql % (node, ct, actives, downed))
 
-        auth.create_user('tarek', 'tarek', 'tarek@ziade.org')
-        uid = auth.get_user_id('tarek')
+        self._create_user(auth, 'tarek6', 'tarek6', 'tarek@ziade.org')
+        uid = auth.get_user_id('tarek6')
 
         # first call will set it up
         self.assertEquals(auth.get_user_node(uid), 'https://node3/')
         self.assertEquals(auth.get_user_node(uid), 'https://node3/')
 
         # node3 is full now. Next user should be on node1
-        auth.create_user('tarek2', 'tarek2', 'tarek@ziade.org')
+        self._create_user(auth, 'tarek2', 'tarek2', 'tarek@ziade.org')
         uid = auth.get_user_id('tarek2')
 
         # make sure we don't get a node if we ask not to give a new one
@@ -207,10 +242,8 @@ class TestLDAPSQLAuth(unittest.TestCase):
     def test_md5_dn(self):
         if not LDAP:
             return
-        auth = LDAPAuth('ldap://localhost', 'sqlite:///:memory:',
-                        users_root='md5',
-                        users_base_dn='dc=mozilla')
 
+        auth = self._get_auth(users_root='md5', users_base_dn='dc=mozilla')
         wanted = 'uid=tarek,dc=17507,dc=7507,dc=507,dc=07,dc=7,dc=mozilla'
         self.assertEquals(auth._get_dn('tarek'), wanted)
 
@@ -219,7 +252,7 @@ class TestLDAPSQLAuth(unittest.TestCase):
         uid = auth.get_user_id('tarek')
         auth_uid = auth.authenticate_user('tarek', 'tarek')
         self.assertEquals(auth_uid, uid)
-        self.assertTrue(auth.update_password(1, 'xxxx', 'tarek'))
+        self.assertTrue(auth.update_password(uid, 'xxxx', 'tarek'))
 
     def _create_user(self, auth, user_name, password, email):
         from services.auth.ldapsql import ssha, random, sha1
@@ -236,7 +269,7 @@ class TestLDAPSQLAuth(unittest.TestCase):
                 'primaryNode': 'weave:',
                 'rescueNode': 'weave:',
                 'userPassword': password_hash,
-                'account-enabled': ['Yes'],
+                'account-enabled': 'Yes',
                 'mail': email,
                 'mail-verified': key,
                 'objectClass': ['dataStore', 'inetOrgPerson']}
@@ -255,20 +288,18 @@ class TestLDAPSQLAuth(unittest.TestCase):
     def test_no_disabled_check(self):
         if not LDAP:
             return
-        auth = LDAPAuth('ldap://localhost', 'sqlite:///:memory:',
-                        users_base_dn='dc=mozilla',
-                        check_account_state=False)
 
-        self._create_user(auth, 'tarek', 'tarek', 'tarek@ziade.org')
-        uid = auth.authenticate_user('tarek', 'tarek')
+        auth = self._get_auth(users_base_dn='dc=mozilla',
+                              check_account_state=False)
+        self._create_user(auth, 'x', 'xxxx', 'tarek@ziade.org')
+        uid = auth.authenticate_user('x', 'xxxx')
         self.assertTrue(uid is not None)
 
     def test_ldap_pool_size(self):
         if not LDAP:
             return
-        auth = LDAPAuth('ldap://localhost', 'sqlite:///:memory:',
-                        ldap_pool_size=5)
 
+        auth = self._get_auth(ldap_pool_size=5)
         self.assertEqual(auth.pool.size, 5)
 
     def test_update_password(self):
@@ -279,9 +310,8 @@ class TestLDAPSQLAuth(unittest.TestCase):
         # should be the user
         if not LDAP:
             return
-        auth = LDAPAuth('ldap://localhost', 'sqlite:///:memory:',
-                        ldap_pool_size=5)
 
+        auth = self._get_auth(ldap_pool_size=5)
         calls = []
         auth._conn2 = auth._conn
 
@@ -292,21 +322,56 @@ class TestLDAPSQLAuth(unittest.TestCase):
         auth._conn = conn
         try:
             self.assertTrue(auth.update_password(1, 'password'))
-            self.assertEqual(calls[-1], ('adminuser', 'adminuser'))
-            self._create_user(auth, 'tarek', 'tarek', 'tarek@ziade.org')
-            self.assertTrue(auth.update_password(1, 'password', 'tarek'))
+            self.assertEqual(calls[-1], ('uid=adminuser,ou=users,dc=mozilla',
+                                         'admin'))
+            self._create_user(auth, 'tarek4', 'tarek4', 'tarek@ziade.org')
+            uid = auth.authenticate_user('tarek4', 'tarek4')
+            self.assertTrue(auth.update_password(uid, 'password', 'tarek4'))
             self.assertEqual(calls[-1],
-                             ('uid=tarek,ou=users,dc=mozilla', 'tarek'))
+                             ('uid=tarek4,ou=users,dc=mozilla', 'tarek4'))
         finally:
             auth._conn = auth._conn2
+
+    def test_pool_purged(self):
+        if not LDAP:
+            return
+
+        # when a user is deleted or its password changed, any previous
+        # connection in the pool that has his binding must be purged
+
+        # IOW, the user should not be able to keep a valid connection
+        # with an old password
+        auth = self._get_auth(ldap_pool_size=5)
+        self._create_user(auth, 'joe', 'joe', 'tarek@ziade.org')
+        uid = auth.authenticate_user('joe', 'joe')
+        self.assertTrue(auth.update_password(uid, 'newpassword',
+                        old_password='joe'))
+
+        # using the old password should not work anymore
+        uid = auth.authenticate_user('joe', 'joe')
+        self.assertTrue(uid is None)
+
+        # using the new password should work
+        uid = auth.authenticate_user('joe', 'newpassword')
+        self.assertTrue(uid is not None)
+
+        # let's delete the user
+        auth.delete_user(uid, 'newpassword')
+
+        # using the new password should not work anymore
+        uid = auth.authenticate_user('joe', 'newpassword')
+        self.assertTrue(uid is None)
+
+        # and the pool should not contain any joe left
+        pool = [conn.who for conn in auth.pool._pool]
+        self.assertTrue('uid=joe,ou=users,dc=mozilla' not in pool)
 
     def test_get_user_id_fail(self):
         if not LDAP:
             return
 
-        auth = LDAPAuth('ldap://localhost', 'sqlite:///:memory:',
-                        users_base_dn='dc=mozilla',
-                        check_account_state=False)
+        auth = self._get_auth(users_base_dn='dc=mozilla',
+                              check_account_state=False)
 
         self._create_user(auth, 'tarek', 'tarek', 'tarek@ziade.org')
         uid = auth.get_user_id('tarek')
