@@ -214,12 +214,6 @@ def get_auth(config):
         pass
 
     try:
-        from services.auth.mozilla2 import MozillaSQLAuth
-        ServicesAuth.register(MozillaSQLAuth)
-    except ImportError:
-        pass
-
-    try:
         from services.auth.ldapsql import LDAPAuth
         ServicesAuth.register(LDAPAuth)
     except ImportError:
