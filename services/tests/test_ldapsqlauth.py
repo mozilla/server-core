@@ -34,6 +34,7 @@
 #
 # ***** END LICENSE BLOCK *****
 import unittest
+import random
 
 from services.util import BackendError, BackendTimeoutError
 
@@ -85,6 +86,11 @@ if LDAP:
                 self.simple_bind_s(bind, passwd)
             self.uri = uri
             self._next_id = 30
+            self._l = self
+
+        def unbind_ext(self, *args, **kw):
+            if random.randint(1, 10) == 1:
+                raise ldap.LDAPError('Invalid State')
 
         def __repr__(self):
             return '<%s - %s>' % (self.who, self.cred)

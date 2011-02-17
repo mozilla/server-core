@@ -112,7 +112,11 @@ class ConnectionPool(object):
 
                 # we found a connector for this bind, that can be used
                 if conn.who == bind and conn.cred == passwd:
-                    conn.unbind_s()
+                    try:
+                        conn.unbind_ext_s()
+                    except ldap.LDAPError:
+                        # avoid error on invalid state
+                        pass
                     conn.simple_bind_s(bind, passwd)
                     conn.active = True
                     return conn
@@ -153,7 +157,11 @@ class ConnectionPool(object):
                 except ldap.TIMEOUT, e:
                     raise BackendTimeoutError(str(e))
                 except (ldap.SERVER_DOWN, ldap.OTHER), e:
-                    conn.unbind_s()
+                    try:
+                        conn.unbind_ext_s()
+                    except ldap.LDAPError:
+                        # invalid connection
+                        pass
                     time.sleep(self.retry_delay)
                     tries += 1
                 else:
@@ -173,7 +181,11 @@ class ConnectionPool(object):
         with self._pool_lock:
             if not connection.connected:
                 # unconnected connector, let's drop it
-                connection.unbind_s()
+                try:
+                    connection.unbind_ext_s()
+                except ldap.LDAPError:
+                    # avoid error on invalid state
+                    pass
                 self._pool.remove(connection)
             else:
                 # can be reused - let's mark is as not active
@@ -214,5 +226,9 @@ class ConnectionPool(object):
                 if passwd is not None and conn.cred == passwd:
                     continue
                 # let's drop it
-                conn.unbind_s()
+                try:
+                    conn.unbind_ext_s()
+                except ldap.LDAPError:
+                    # invalid state
+                    pass
                 self._pool.remove(conn)
