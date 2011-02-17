@@ -56,6 +56,8 @@ _SQLURI = 'mysql://sync:sync@localhost/sync'
 
 _USER_ID = select([users.c.id], users.c.username == bindparam('user_name'))
 
+_USER_NAME = select([users.c.username], users.c.id == bindparam('uid'))
+
 _USER_INFO = select([users.c.username, users.c.email],
                     users.c.id == bindparam('user_id'))
 
@@ -100,6 +102,14 @@ class SQLAuth(ResetCodeManager):
     def get_name(self):
         """Returns the name of the authentication backend"""
         return 'sql'
+
+    def _get_username(self, uid):
+        """Returns the id for a user name"""
+        user = safe_execute(self._engine, _USER_NAME, uid=uid).fetchone()
+        if user is None:
+            return None
+        return user.username
+
 
     def get_user_id(self, user_name):
         """Returns the id for a user name"""
