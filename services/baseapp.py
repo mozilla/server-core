@@ -37,8 +37,6 @@
 Application entry point.
 """
 import traceback
-import pprint
-import StringIO
 
 from paste.translogger import TransLogger
 from paste.exceptions.errormiddleware import ErrorMiddleware
@@ -50,34 +48,15 @@ from webob.exc import HTTPNotFound, HTTPBadRequest, HTTPServiceUnavailable
 from webob import Response
 
 from services.util import (convert_config, CatchErrorMiddleware, round_time,
-                           BackendError, html_response, text_response)
+                           BackendError)
 from services import logger
 from services.wsgiauth import Authentication
-
-
-_DEBUG_TMPL = """
-<html>
- <head>
-  <title>Debug information</title>
- </head>
- <body>
-  <h1>Request environ</h1>
-  <pre>
-   %(environ)s
-  </pre>
-  <h1>Additional information</h1>
-  <pre>
-  %(extra)s
-  </pre>
- </body>
-</html>"""
+from services.controllers import StandardController
 
 
 class SyncServerApp(object):
-    """ BaseServerApp dispatches the request to the right controller
-    by using Routes.
+    """ Dispatches the request to the right controller by using Routes.
     """
-
     def __init__(self, urls, controllers, config=None,
                  auth_class=Authentication):
         self.mapper = Mapper()
@@ -124,6 +103,13 @@ class SyncServerApp(object):
         # loads host-specific configuration
         self._host_configs = {}
 
+        # heartbeat & debug pages
+        self.standard_controller = StandardController(self)
+
+        # rehooked overridable points so they can be overridden in the base app
+        self.standard_controller._debug_server = self._debug_server
+        self.standard_controller._check_server = self._check_server
+
     def _before_call(self, request):
         return {}
 
@@ -149,66 +135,23 @@ class SyncServerApp(object):
         return host_config
 
     #
-    # Debug page
+    # Debug & heartbeat pages
     #
     def _debug_server(self, request):
-        """Can be overriden to provide extra information on debug calls.
-
-        See also _debug
-        """
         return []
 
-    def _debug(self, request):
-        """Returns a debug page containing useful information about the
-        environ.
-
-        Application based on SyncServerApp can implement _debug_server to
-        add their own tests.
-
-        IMPORTANT: this page must not be published without any form of
-        authentication since it can display sensitive information.
-
-        It is disabled by default.
-        """
-        res = _DEBUG_TMPL
-
-        # environ
-        out = StringIO.StringIO()
-        pprint.pprint(request.environ, out)
-        out.seek(0)
-        data = {'environ': out.read()}
-
-        # extra info
-        extra = '\n'.join(self._debug_server(request))
-        if extra == '':
-            extra = 'None.'
-        data['extra'] = extra
-
-        return html_response(res % data)
-
-    #
-    # Heartbeat page
-    #
     def _check_server(self, request):
-        """Can be overriden to perform extra tests on heartbeat calls.
-
-        Should raise a HTTPServerUnavailable on failure. See also _heartbeat
-        """
         pass
 
+    def _debug(self, request):
+        return self.standard_controller._debug(request)
+
     def _heartbeat(self, request):
-        """Performs a health check on the server.
+        return self.standard_controller._heartbeat(request)
 
-        Returns a 200 on success, a 503 on failure. Application based on
-        SyncServerApp can implement _check_server to add their own tests.
-
-        It is enabled by default at __heartbeat__ but does not perform
-        any test on the infra unless _check_server is overriden.
-        """
-        # calls the check if any - this will raise a 503 if anything's wrong
-        self._check_server(request)
-        return text_response('')
-
+    #
+    # entry point
+    #
     @wsgify
     def __call__(self, request):
         if request.method in ('HEAD',):
