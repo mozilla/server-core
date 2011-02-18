@@ -42,7 +42,7 @@ from urllib import urlencode
 from services.util import BackendError, get_url
 from services.auth.ldapsql import LDAPAuth
 from services import logger
-from services.auth.ldapconnector import StateConnector
+from services.auth.ldapconnection import StateConnector
 
 class MozillaAuth(LDAPAuth):
     """LDAP authentication."""
