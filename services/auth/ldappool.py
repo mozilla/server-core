@@ -62,11 +62,13 @@ class StateConnector(ReconnectLDAPObject):
         return res
 
     def unbind_ext_s(self, serverctrls=None, clientctrls=None):
-        res = ReconnectLDAPObject.unbind_ext_s(self, serverctrls, clientctrls)
-        self.connected = False
-        self.who = None
-        self.cred = None
-        return res
+        try:
+            return ReconnectLDAPObject.unbind_ext_s(self, serverctrls,
+                                                    clientctrls)
+        finally:
+            self.connected = False
+            self.who = None
+            self.cred = None
 
     def add_s(self, *args, **kwargs):
         return self._apply_method_s(ReconnectLDAPObject.add_s, *args,
@@ -77,13 +79,14 @@ class StateConnector(ReconnectLDAPObject):
                                     **kwargs)
 
 
-class ConnectionPool(object):
-    """LDAP Connector pool.
-    """
+class ConnectionManager(object):
+    """LDAP Connection Manager.
 
+    Provides a context manager for LDAP connectors.
+    """
     def __init__(self, uri, bind=None, passwd=None, size=10, retry_max=3,
                  retry_delay=.1, use_tls=False, single_box=False, timeout=-1,
-                 connector_cls=StateConnector):
+                 connector_cls=StateConnector, use_pool=True):
         self._pool = []
         self.size = size
         self.retry_max = retry_max
@@ -95,13 +98,14 @@ class ConnectionPool(object):
         self.use_tls = False
         self.timeout = timeout
         self.connector_cls = connector_cls
+        self.use_pool = use_pool
 
     def __len__(self):
         return len(self._pool)
 
     def _match(self, bind, passwd):
         with self._pool_lock:
-            for conn in self._pool:
+            for conn in list(self._pool):
                 if conn.active:
                     continue
 
@@ -117,28 +121,20 @@ class ConnectionPool(object):
                     except ldap.LDAPError:
                         # avoid error on invalid state
                         pass
-                    conn.simple_bind_s(bind, passwd)
-                    conn.active = True
-                    return conn
+                    try:
+                        conn.simple_bind_s(bind, passwd)
+                    except ldap.LDAPError:
+                        # invalid connector, to be discarded
+                        self._pool.remove(conn)
+                        continue
+                    else:
+                        conn.active = True
+                        return conn
 
         return None
 
-    def _get_connection(self, bind=None, passwd=None):
-        if bind is None:
-            bind = self.bind
-        if passwd is None:
-            passwd = self.passwd
-
-        # let's try to recycle an existing one
-        conn = self._match(bind, passwd)
-        if conn is not None:
-            return conn
-
-        # the pool is full
-        if len(self._pool) >= self.size:
-            raise MaxConnectionReachedError(self.uri)
-
-        # we need to create a new connector
+    def _create_connector(self, bind, passwd):
+        """Creates a connector, binds it, and returns it"""
         conn = self.connector_cls(self.uri, retry_max=self.retry_max,
                                   retry_delay=self.retry_delay)
         conn.timeout = self.timeout
@@ -172,24 +168,50 @@ class ConnectionPool(object):
                 raise BackendError(str(e))
 
         conn.active = True
-        with self._pool_lock:
-            self._pool.append(conn)
+        return conn
+
+    def _get_connection(self, bind=None, passwd=None):
+        if bind is None:
+            bind = self.bind
+        if passwd is None:
+            passwd = self.passwd
+
+        if self.use_pool:
+            # let's try to recycle an existing one
+            conn = self._match(bind, passwd)
+            if conn is not None:
+                return conn
+
+            # the pool is full
+            if len(self._pool) >= self.size:
+                raise MaxConnectionReachedError(self.uri)
+
+        # we need to create a new connector
+        conn = self._create_connector(bind, passwd)
+
+        # adding it to the pool
+        if self.use_pool:
+            with self._pool_lock:
+                self._pool.append(conn)
 
         return conn
 
     def _release_connection(self, connection):
-        with self._pool_lock:
-            if not connection.connected:
-                # unconnected connector, let's drop it
-                try:
-                    connection.unbind_ext_s()
-                except ldap.LDAPError:
-                    # avoid error on invalid state
-                    pass
-                self._pool.remove(connection)
-            else:
-                # can be reused - let's mark is as not active
-                connection.active = False
+        if self.use_pool:
+            with self._pool_lock:
+                if not connection.connected:
+                    # unconnected connector, let's drop it
+                    self._pool.remove(connection)
+                else:
+                    # can be reused - let's mark is as not active
+                    connection.active = False
+
+        # in any case, try to unbind it
+        try:
+            connection.unbind_ext_s()
+        except ldap.LDAPError:
+            # avoid error on invalid state
+            pass
 
     @contextmanager
     def connection(self, bind=None, passwd=None):
@@ -219,6 +241,9 @@ class ConnectionPool(object):
             self._release_connection(conn)
 
     def purge(self, bind, passwd=None):
+        if self.use_pool:
+            return
+
         with self._pool_lock:
             for conn in list(self._pool):
                 if conn.who != bind:

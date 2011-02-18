@@ -38,13 +38,13 @@ import random
 
 from services.util import BackendError, BackendTimeoutError
 
-try:
-    import ldap
-    from services.auth.ldappool import StateConnector
-    from services.auth.ldapsql import LDAPAuth
-    LDAP = True
-except ImportError:
-    LDAP = False
+#try:
+import ldap
+from services.auth.ldapconnection import StateConnector
+from services.auth.ldapsql import LDAPAuth
+LDAP = True
+#except ImportError:
+#    LDAP = False
 
 from services.util import validate_password, ssha
 
@@ -159,6 +159,14 @@ _NEXT = 0
 
 
 class TestLDAPSQLAuth(unittest.TestCase):
+
+    def tearDown(self):
+        if not LDAP:
+            return
+        for key, user in list(users.items()):
+            if user['uidNumber'] in (['-1'], ['0']):
+                continue
+            del users[key]
 
     def _next_id(self):
         global _NEXT
@@ -306,7 +314,7 @@ class TestLDAPSQLAuth(unittest.TestCase):
             return
 
         auth = self._get_auth(ldap_pool_size=5)
-        self.assertEqual(auth.pool.size, 5)
+        self.assertEqual(auth.conn.size, 5)
 
     def test_update_password(self):
         # when update_password is called without old password
@@ -327,14 +335,15 @@ class TestLDAPSQLAuth(unittest.TestCase):
 
         auth._conn = conn
         try:
-            self.assertTrue(auth.update_password(1, 'password'))
-            self.assertEqual(calls[-1], ('uid=adminuser,ou=users,dc=mozilla',
-                                         'admin'))
             self._create_user(auth, 'tarek4', 'tarek4', 'tarek@ziade.org')
             uid = auth.authenticate_user('tarek4', 'tarek4')
-            self.assertTrue(auth.update_password(uid, 'password', 'tarek4'))
+            self.assertTrue(auth.update_password(uid, 'password'))
+            self.assertEqual(calls[-1], ('uid=adminuser,ou=users,dc=mozilla',
+                                         'admin'))
+            self.assertTrue(auth.update_password(uid, 'password2',
+                                                 old_password='password'))
             self.assertEqual(calls[-1],
-                             ('uid=tarek4,ou=users,dc=mozilla', 'tarek4'))
+                             ('uid=tarek4,ou=users,dc=mozilla', 'password'))
         finally:
             auth._conn = auth._conn2
 
@@ -369,7 +378,7 @@ class TestLDAPSQLAuth(unittest.TestCase):
         self.assertTrue(uid is None)
 
         # and the pool should not contain any joe left
-        pool = [conn.who for conn in auth.pool._pool]
+        pool = [conn.who for conn in auth.conn._pool]
         self.assertTrue('uid=joe,ou=users,dc=mozilla' not in pool)
 
     def test_get_user_id_fail(self):
@@ -396,3 +405,43 @@ class TestLDAPSQLAuth(unittest.TestCase):
             self.assertRaises(BackendError, auth.get_user_id, 'tarek')
         finally:
             MemoryStateConnector.search_st = old
+
+    def test_ldap_no_pool(self):
+        if not LDAP:
+            return
+
+        name = 'user123'
+
+        # making sure we support the no-pool mode
+        auth = self._get_auth(no_pool=True)
+
+        # creating account
+        self._create_user(auth, name, 'tarek', 'tarek@ziade.org')
+        uid = auth.get_user_id(name)
+        self.assertTrue(uid is not None)
+
+        # auth
+        auth_uid = auth.authenticate_user(name, 'tarek')
+        self.assertEquals(auth_uid, uid)
+
+        # e-mail update
+        self.assertTrue(auth.update_email(uid, 'new@email.com', 'tarek'))
+        wanted_name, email = auth.get_user_info(uid)
+        self.assertEquals(email, 'new@email.com')
+        self.assertEquals(wanted_name, name)
+
+        # update password
+        auth.update_password(uid, 'xxxx', old_password='tarek')
+
+        # auth again
+        auth_uid = auth.authenticate_user(name, 'xxxx')
+        self.assertEquals(auth_uid, uid)
+
+        # the old auth fails
+        auth_uid = auth.authenticate_user(name, 'tarek')
+        self.assertTrue(auth_uid is None)
+
+        # delete account
+        auth.delete_user(uid, 'xxxx')
+        auth_uid = auth.authenticate_user(name, 'xxxx')
+        self.assertEquals(auth_uid, None)

@@ -47,7 +47,7 @@ from sqlalchemy.sql import select, insert, update, and_
 
 from services.util import BackendError, ssha
 from services.auth import NodeAttributionError
-from services.auth.ldappool import ConnectionPool, StateConnector
+from services.auth.ldapconnection import ConnectionManager, StateConnector
 from services.auth.resetcode import ResetCodeManager
 from services import logger
 
@@ -90,7 +90,7 @@ class LDAPAuth(ResetCodeManager):
                  users_base_dn=None, pool_size=100, pool_recycle=3600,
                  reset_on_return=True, single_box=False, ldap_timeout=-1,
                  nodes_scheme='https', check_account_state=True,
-                 create_tables=True, ldap_pool_size=10,
+                 create_tables=True, ldap_pool_size=10, ldap_use_pool=True,
                  connector_cls=StateConnector, **kw):
         self.check_account_state = check_account_state
         self.ldapuri = ldapuri
@@ -106,10 +106,11 @@ class LDAPAuth(ResetCodeManager):
         self.nodes_scheme = nodes_scheme
         self.ldap_timeout = ldap_timeout
         # by default, the ldap connections use the bind user
-        self.pool = ConnectionPool(ldapuri, bind_user, bind_password,
-                                   use_tls=use_tls, timeout=ldap_timeout,
-                                   size=ldap_pool_size,
-                                   connector_cls=connector_cls)
+        self.conn = ConnectionManager(ldapuri, bind_user, bind_password,
+                                      use_tls=use_tls, timeout=ldap_timeout,
+                                      size=ldap_pool_size,
+                                      use_pool=ldap_use_pool,
+                                      connector_cls=connector_cls)
         sqlkw = {'pool_size': int(pool_size),
                  'pool_recycle': int(pool_recycle),
                  'logging_name': 'weaveserver'}
@@ -128,10 +129,10 @@ class LDAPAuth(ResetCodeManager):
         ResetCodeManager.__init__(self, engine, create_tables=create_tables)
 
     def _conn(self, bind=None, passwd=None):
-        return self.pool.connection(bind, passwd)
+        return self.conn.connection(bind, passwd)
 
     def _purge_conn(self, bind, passwd=None):
-        self.pool.purge(bind, passwd=None)
+        self.conn.purge(bind, passwd=None)
 
     @classmethod
     def get_name(self):
@@ -356,12 +357,15 @@ class LDAPAuth(ResetCodeManager):
         password_hash = ssha(new_password)
         user = [(ldap.MOD_REPLACE, 'userPassword', [password_hash])]
 
-        with self._conn(dn, ldap_password) as conn:
-            try:
-                res, __ = conn.modify_s(user_dn, user)
-            except (ldap.TIMEOUT, ldap.SERVER_DOWN, ldap.OTHER), e:
-                logger.debug('Could not update the password in ldap.')
-                raise BackendError(str(e))
+        try:
+            with self._conn(dn, ldap_password) as conn:
+                try:
+                    res, __ = conn.modify_s(user_dn, user)
+                except (ldap.TIMEOUT, ldap.SERVER_DOWN, ldap.OTHER), e:
+                    logger.debug('Could not update the password in ldap.')
+                    raise BackendError(str(e))
+        except ldap.INVALID_CREDENTIALS:
+            return False
 
         self._purge_conn(user_dn, new_password)
         return res == ldap.RES_MODIFY
