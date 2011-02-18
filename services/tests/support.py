@@ -41,6 +41,7 @@ from services.auth import ServicesAuth
 from services.util import convert_config
 import services
 
+
 _SYNCDIR = os.path.dirname(services.__file__)
 _TOPDIR = os.path.split(_SYNCDIR)[0]
 
@@ -154,3 +155,24 @@ def get_app(wrapped):
             app = app.application
         else:
             return app
+
+
+def create_test_app(application):
+    """Returns a TestApp instance.
+
+    If TEST_REMOTE is set in the environ, will run against a real server.
+    """
+    import urlparse
+    from wsgiproxy.exactproxy import proxy_exact_request
+    from webtest import TestApp
+
+    # runs over a proxy
+    if os.environ.get('TEST_REMOTE'):
+        parsed = urlparse.urlsplit(os.environ['TEST_REMOTE'])
+        extra = {'wsgi.scheme': parsed.scheme,
+                 'HTTP_HOST': parsed.netloc,
+                 'SERVER_NAME': parsed.netloc}
+        return TestApp(proxy_exact_request, extra_environ=extra)
+
+    # regular instance
+    return TestApp(application)

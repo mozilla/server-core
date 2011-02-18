@@ -110,7 +110,6 @@ class SQLAuth(ResetCodeManager):
             return None
         return user.username
 
-
     def get_user_id(self, user_name):
         """Returns the id for a user name"""
         user = safe_execute(self._engine, _USER_ID,
