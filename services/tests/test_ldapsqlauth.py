@@ -38,13 +38,13 @@ import random
 
 from services.util import BackendError, BackendTimeoutError
 
-#try:
-import ldap
-from services.auth.ldapconnection import StateConnector
-from services.auth.ldapsql import LDAPAuth
-LDAP = True
-#except ImportError:
-#    LDAP = False
+try:
+    import ldap
+    from services.auth.ldapconnection import StateConnector
+    from services.auth.ldapsql import LDAPAuth
+    LDAP = True
+except ImportError:
+    LDAP = False
 
 from services.util import validate_password, ssha
 
