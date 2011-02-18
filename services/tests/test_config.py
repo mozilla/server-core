@@ -68,6 +68,14 @@ two = "a"
 more = stuff
 """
 
+_FILE_THREE = """\
+[DEFAULT]
+extends = no-no,no-no-no-no,no-no-no-no,theresnolimit
+
+[one]
+foo = bar
+"""
+
 
 class ConfigTestCase(unittest.TestCase):
 
@@ -79,6 +87,7 @@ class ConfigTestCase(unittest.TestCase):
         f.close()
         self.file_one = StringIO(_FILE_ONE % filename)
         self.file_two = filename
+        self.file_three = StringIO(_FILE_THREE)
 
     def tearDown(self):
         if '__STUFF__' in os.environ:
@@ -108,3 +117,8 @@ class ConfigTestCase(unittest.TestCase):
         # extends
         self.assertEquals(config.get('three', 'more'), 'stuff')
         self.assertEquals(config.get('one', 'two'), 'a')
+
+    def test_nofile(self):
+        # if a user tries to use an inexistant file in extensios,
+        # pops an error
+        self.assertRaises(IOError, Config, self.file_three)

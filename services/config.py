@@ -158,6 +158,8 @@ class Config(RawConfigParser):
 
     def _extend(self, filename):
         """Expand the config with another file."""
+        if not os.path.isfile(filename):
+            raise IOError('No such file: %s' % filename)
         parser = RawConfigParser()
         parser.read([filename])
         for section in parser.sections():
