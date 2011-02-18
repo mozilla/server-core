@@ -54,7 +54,8 @@ class MozillaAuth(LDAPAuth):
                  users_base_dn=None, pool_size=100, pool_recycle=3600,
                  reset_on_return=True, single_box=False, ldap_timeout=-1,
                  nodes_scheme='https', check_account_state=True,
-                 create_tables=True, ldap_pool_size=10, **kw):
+                 create_tables=True, ldap_pool_size=10, ldap_use_pool=False,
+                 connector_cls=StateConnector, **kw):
 
         super(MozillaAuth, self).__init__(ldapuri, None, use_tls, bind_user,
                                      bind_password, admin_user,
@@ -62,7 +63,8 @@ class MozillaAuth(LDAPAuth):
                                      users_base_dn, pool_size, pool_recycle,
                                      reset_on_return, single_box, ldap_timeout,
                                      nodes_scheme, check_account_state,
-                                     create_tables, ldap_pool_size)
+                                     create_tables, ldap_pool_size,
+                                     ldap_use_pool, connector_cls)
 
         self.sreg_location = sreg_location
         self.sreg_scheme = sreg_scheme

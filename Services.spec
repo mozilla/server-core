@@ -3,7 +3,7 @@
 %define version 0.2
 %define unmangled_version 0.2
 %define unmangled_version 0.2
-%define release 11
+%define release 12
 
 Summary: Services core tools
 Name: %{name}

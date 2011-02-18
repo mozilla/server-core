@@ -86,7 +86,7 @@ class ConnectionManager(object):
     """
     def __init__(self, uri, bind=None, passwd=None, size=10, retry_max=3,
                  retry_delay=.1, use_tls=False, single_box=False, timeout=-1,
-                 connector_cls=StateConnector, use_pool=True):
+                 connector_cls=StateConnector, use_pool=False):
         self._pool = []
         self.size = size
         self.retry_max = retry_max
