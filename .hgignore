@@ -3,7 +3,7 @@ pyc$
 lib
 include
 bin
-SyncCore.egg-info
+Services.egg-info
 swp$
 html
 doc/build
