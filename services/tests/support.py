@@ -169,9 +169,20 @@ def create_test_app(application):
     # runs over a proxy
     if os.environ.get('TEST_REMOTE'):
         parsed = urlparse.urlsplit(os.environ['TEST_REMOTE'])
-        extra = {'wsgi.scheme': parsed.scheme,
-                 'HTTP_HOST': parsed.netloc,
-                 'SERVER_NAME': parsed.netloc}
+        if ':' in parsed.netloc:
+            loc, port = parsed.netloc.split(':')
+        else:
+            loc = parsed.netloc
+            if parsed.scheme == 'https':
+                port = '443'
+            else:
+                port = '80'
+
+        extra = {'HTTP_HOST': parsed.netloc,
+                 'SERVER_NAME': loc,
+                 'SERVER_PORT': port,
+                 'wsgi.url_scheme': parsed.scheme}
+
         return TestApp(proxy_exact_request, extra_environ=extra)
 
     # regular instance
