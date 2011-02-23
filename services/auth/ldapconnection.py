@@ -114,22 +114,23 @@ class ConnectionManager(object):
                     conn.active = True
                     return conn
 
-                # we found a connector for this bind, that can be used
-                if conn.who == bind and conn.cred == passwd:
+                # we found a connector for this bind
+                if conn.who == bind:
+                    # same passwd, we're good
+                    if conn.cred == passwd:
+                        conn.active = True
+                        return conn
+
+                    # different password, let's discard it
                     try:
                         conn.unbind_ext_s()
                     except ldap.LDAPError:
                         # avoid error on invalid state
                         pass
-                    try:
-                        conn.simple_bind_s(bind, passwd)
-                    except ldap.LDAPError:
-                        # invalid connector, to be discarded
-                        self._pool.remove(conn)
-                        continue
-                    else:
-                        conn.active = True
-                        return conn
+
+                    # invalid connector, to be discarded
+                    self._pool.remove(conn)
+                    continue
 
         return None
 
@@ -206,7 +207,10 @@ class ConnectionManager(object):
                     # can be reused - let's mark is as not active
                     connection.active = False
 
-        # in any case, try to unbind it
+                    # done.
+                    return
+
+        # let's try to unbind it
         try:
             connection.unbind_ext_s()
         except ldap.LDAPError:
