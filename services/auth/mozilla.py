@@ -38,11 +38,11 @@
 import simplejson as json
 import urlparse
 
-from urllib import urlencode
 from services.util import BackendError, get_url
 from services.auth.ldapsql import LDAPAuth
 from services import logger
 from services.auth.ldapconnection import StateConnector
+
 
 class MozillaAuth(LDAPAuth):
     """LDAP authentication."""
@@ -54,7 +54,7 @@ class MozillaAuth(LDAPAuth):
                  users_base_dn=None, pool_size=100, pool_recycle=3600,
                  reset_on_return=True, single_box=False, ldap_timeout=-1,
                  nodes_scheme='https', check_account_state=True,
-                 create_tables=True, ldap_pool_size=10, ldap_use_pool=False,
+                 create_tables=False, ldap_pool_size=10, ldap_use_pool=False,
                  connector_cls=StateConnector, **kw):
 
         super(MozillaAuth, self).__init__(ldapuri, None, use_tls, bind_user,

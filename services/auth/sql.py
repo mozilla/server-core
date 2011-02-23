@@ -96,7 +96,7 @@ class SQLAuth(ResetCodeManager):
         if create_tables:
             users.create(checkfirst=True)
         self.sqluri = sqluri
-        ResetCodeManager.__init__(self, engine)
+        ResetCodeManager.__init__(self, engine, create_tables=create_tables)
 
     @classmethod
     def get_name(self):

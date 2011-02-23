@@ -90,7 +90,7 @@ class LDAPAuth(ResetCodeManager):
                  users_base_dn=None, pool_size=100, pool_recycle=3600,
                  reset_on_return=True, single_box=False, ldap_timeout=-1,
                  nodes_scheme='https', check_account_state=True,
-                 create_tables=True, ldap_pool_size=10, ldap_use_pool=False,
+                 create_tables=False, ldap_pool_size=10, ldap_use_pool=False,
                  connector_cls=StateConnector, **kw):
         self.check_account_state = check_account_state
         self.ldapuri = ldapuri

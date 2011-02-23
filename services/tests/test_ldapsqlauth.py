@@ -37,6 +37,7 @@ import unittest
 import random
 
 from services.util import BackendError, BackendTimeoutError
+from sqlalchemy.exc import OperationalError
 
 try:
     import ldap
@@ -174,8 +175,9 @@ class TestLDAPSQLAuth(unittest.TestCase):
         return _NEXT
 
     def _get_auth(self, **kw):
+        if 'create_tables' not in kw:
+            kw['create_tables'] = True
         auth = LDAPAuth('ldap://localhost', 'sqlite:///:memory:',
-                        create_tables=True,
                         admin_user='uid=adminuser,ou=users,dc=mozilla',
                         admin_password='admin',
                         bind_user='uid=binduser,ou=users,dc=mozilla',
@@ -445,3 +447,17 @@ class TestLDAPSQLAuth(unittest.TestCase):
         auth.delete_user(uid, 'xxxx')
         auth_uid = auth.authenticate_user(name, 'xxxx')
         self.assertEquals(auth_uid, None)
+
+    def test_no_creation(self):
+        if not LDAP:
+            return
+
+        # this should not create any table in the DB
+        auth = self._get_auth(create_tables=False)
+        self.assertRaises(OperationalError, auth._engine.execute,
+                          'select * from available_nodes')
+
+        # this should
+        auth = self._get_auth(create_tables=True)
+        res = auth._engine.execute('select * from available_nodes').fetchall()
+        self.assertEquals(res, [])
