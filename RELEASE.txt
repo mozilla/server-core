@@ -1,0 +1,15 @@
+0.2-14 - 2011-02-23
+===================
+
+Impacts:
+
+- Ops
+- QA
+
+Dependencies:
+
+- None
+
+Relevant changes:
+
+- 635893 - Fix the pool behavior on unbindings
