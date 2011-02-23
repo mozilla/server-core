@@ -77,7 +77,7 @@ class MozillaAuth(LDAPAuth):
         - netloc: proxy location
         """
         if data is not None:
-            data = urlencode(data.items())
+            data = json.dumps(data)
 
         status, headers, body = get_url(url, method, data, headers)
 
