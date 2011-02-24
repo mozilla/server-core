@@ -40,9 +40,9 @@ import binascii
 import base64
 
 from webob.exc import HTTPUnauthorized, HTTPBadRequest
+from cef import log_cef
 
 from services.auth import get_auth
-from services.cef import log_cef
 from services.util import extract_username
 
 

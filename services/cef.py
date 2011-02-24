@@ -33,6 +33,10 @@
 # the terms of any one of the MPL, the GPL or the LGPL.
 #
 # ***** END LICENSE BLOCK *****
+
+# XXX Module to be removed once all app have switched to the
+# standalone lib
+
 import sys
 import threading
 try:
