@@ -36,6 +36,8 @@
 from ConfigParser import RawConfigParser
 import os
 from logging.config import fileConfig
+import smtplib
+from email import message_from_string
 
 from services.auth import ServicesAuth
 from services.util import convert_config
@@ -187,3 +189,32 @@ def create_test_app(application):
 
     # regular instance
     return TestApp(application)
+
+
+class _FakeSMTP(object):
+
+    msgs = []
+
+    def __init__(self, *args, **kw):
+        pass
+
+    def quit(self):
+        pass
+
+    def sendmail(self, sender, rcpts, msg):
+        self.msgs.append((sender, rcpts, msg))
+
+
+def patch_smtp():
+    smtplib.old = smtplib.SMTP
+    smtplib.SMTP = _FakeSMTP
+
+
+def unpatch_smtp():
+    smtplib.SMTP = smtplib.old
+
+
+def get_sent_email(index=-1):
+    sender, rcpts, msg = _FakeSMTP.msgs[index]
+    msg = message_from_string(msg)
+    return sender, rcpts, msg
