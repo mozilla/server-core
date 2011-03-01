@@ -18,7 +18,7 @@
 # the Initial Developer. All Rights Reserved.
 #
 # Contributor(s):
-#   Tarek Ziade (tarek@mozilla.com)
+#   Toby Elliott (telliott@mozilla.com)
 #
 # Alternatively, the contents of this file may be used under the terms of
 # either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -34,18 +34,18 @@
 #
 # ***** END LICENSE BLOCK *****
 import unittest
-import wsgi_intercept
 from webob import Response
-from wsgi_intercept.urllib2_intercept import install_opener
-install_opener()
 
 try:
     from services.auth.mozilla import MozillaAuth
     # using the patching from test_ldapsqlauth
     from services.tests.test_ldapsqlauth import patch, unpatch
-    LDAP = True
+    import wsgi_intercept
+    from wsgi_intercept.urllib2_intercept import install_opener
+    install_opener()
+    DO_TESTS = True
 except ImportError:
-    LDAP = False
+    DO_TESTS = False
 
 
 # returns a body that has all the responses we need
@@ -61,15 +61,15 @@ def bad_reset_code_resp():
 class TestLDAPSQLAuth(unittest.TestCase):
 
     def setUp(self):
-        if LDAP:
+        if DO_TESTS:
             patch()
 
     def tearDown(self):
-        if LDAP:
+        if DO_TESTS:
             unpatch()
 
     def test_mozilla_auth(self):
-        if not LDAP:
+        if not DO_TESTS:
             return
 
         wsgi_intercept.add_wsgi_intercept('localhost', 80, fake_response)
