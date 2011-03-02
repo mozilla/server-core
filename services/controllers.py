@@ -36,6 +36,7 @@
 """
 Application entry point.
 """
+import re
 import pprint
 import StringIO
 
@@ -94,6 +95,21 @@ class StandardController(object):
         It is disabled by default.
         """
         res = _DEBUG_TMPL
+        sqluri = '(?P<scheme>mysql|sqlite)://(?P<login>.*?:.*)@(?P<url>.*)'
+        sqluri = re.compile(sqluri)
+        replacer = '\g<scheme>://****:****@\g<url>'
+
+        # cleanup
+        if 'webob.adhoc_attrs' in request.environ:
+            attrs = request.environ['webob.adhoc_attrs']
+            if 'config' in attrs:
+                for key, value in attrs['config'].items():
+                    if 'password' in key or 'key' in key:
+                        attrs['config'][key] = '********'
+                    elif key.endswith('sqluri'):
+                        new = sqluri.sub(replacer, value)
+                        if value != new:
+                            attrs['config'][key] = new
 
         # environ
         out = StringIO.StringIO()
@@ -105,8 +121,9 @@ class StandardController(object):
         extra = '\n'.join(self._debug_server(request))
         if extra == '':
             extra = 'None.'
-        data['extra'] = extra
 
+        # filtering extra info
+        data['extra'] = sqluri.sub(replacer, extra)
         return html_response(res % data)
 
     #
