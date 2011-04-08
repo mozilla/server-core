@@ -43,7 +43,7 @@ class DummyAuth(object):
 
     Will store the user ids in memory"""
 
-    def __init__(self):
+    def __init__(self, **kw):
         self._users = {}
 
     @classmethod
