@@ -76,7 +76,7 @@ class SyncServerApp(object):
         self.debug_page = self.config.get('global.debug_page')
 
         # loading the authentication tool
-        self.auth = auth_class(self.config)
+        self.auth = None if auth_class is None else auth_class(self.config)
 
         # loading and connecting controllers
         self.controllers = dict([(name, klass(self)) for name, klass in
@@ -186,7 +186,8 @@ class SyncServerApp(object):
         match, __ = match
 
         # authentication control
-        self.auth.check(request, match)
+        if self.auth is not None:
+            self.auth.check(request, match)
 
         function = self._get_function(match['controller'], match['method'])
         if function is None:
