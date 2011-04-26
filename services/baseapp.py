@@ -84,10 +84,10 @@ class SyncServerApp(object):
 
         for url in urls:
             if len(url) == 4:
-                verbs, match, controller, method = url
+                verbs, match, controller, action = url
                 extras = {}
             elif len(url) == 5:
-                verbs, match, controller, method, extras = url
+                verbs, match, controller, action, extras = url
             else:
                 msg = "Each URL description needs 4 or 5 elements. Got %s" \
                     % str(url)
@@ -97,7 +97,7 @@ class SyncServerApp(object):
                 verbs = [verbs]
 
             self.mapper.connect(None, match, controller=controller,
-                                method=method, conditions=dict(method=verbs),
+                                action=action, conditions=dict(method=verbs),
                                 **extras)
 
         # loads host-specific configuration
