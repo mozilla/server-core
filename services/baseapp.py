@@ -189,7 +189,7 @@ class SyncServerApp(object):
         if self.auth is not None:
             self.auth.check(request, match)
 
-        function = self._get_function(match['controller'], match['method'])
+        function = self._get_function(match['controller'], match['action'])
         if function is None:
             raise HTTPNotFound('Unkown URL %r' % request.path_info)
 
@@ -220,13 +220,13 @@ class SyncServerApp(object):
         response.headers.update(before_headers)
         return response
 
-    def _get_function(self, controller, method):
-        """Return the method of the right controller."""
+    def _get_function(self, controller, action):
+        """Return the action of the right controller."""
         try:
             controller = self.controllers[controller]
         except KeyError:
             return None
-        return getattr(controller, method)
+        return getattr(controller, action)
 
 
 def set_app(urls, controllers, klass=SyncServerApp, auth_class=Authentication,
