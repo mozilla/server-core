@@ -210,7 +210,8 @@ class SyncServerApp(object):
             raise HTTPServiceUnavailable(retry_after=self.retry_after)
 
         if isinstance(result, basestring):
-            response = Response(result)
+            response = request.response
+            response.body = result
         else:
             # result is already a Response
             response = result
@@ -226,7 +227,7 @@ class SyncServerApp(object):
             controller = self.controllers[controller]
         except KeyError:
             return None
-        return getattr(controller, action)
+        return getattr(controller, action, None)
 
 
 def set_app(urls, controllers, klass=SyncServerApp, auth_class=Authentication,
