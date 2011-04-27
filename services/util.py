@@ -506,7 +506,18 @@ def get_url(url, method='GET', data=None, user=None, password=None, timeout=5,
     try:
         res = urllib2.urlopen(req, timeout=timeout)
     except urllib2.HTTPError, e:
-        return e.code, {}, str(e)
+        if hasattr(e, 'headers'):
+            headers = dict(e.headers)
+        else:
+            headers = {}
+
+        if hasattr(e, 'read'):
+            body = e.read()
+        else:
+            body = ''
+
+        return e.code, headers, body
+
     except urllib2.URLError, e:
         if isinstance(e.reason, socket.timeout):
             return 504, {}, str(e)
