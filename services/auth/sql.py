@@ -64,6 +64,9 @@ _USER_INFO = select([users.c.username, users.c.email],
 _USER_AUTH = select([users.c.id, users.c.password_hash, users.c.status],
                     users.c.username == bindparam('user_name'))
 
+_USER_PASSWORD = select([users.c.id, users.c.password_hash],
+                         users.c.id == bindparam('user_id'))
+
 _USER_RESET_CODE = select([users.c.reset_expiration, users.c.reset],
                           users.c.id == bindparam('user_id'))
 
@@ -208,6 +211,16 @@ class SQLAuth(ResetCodeManager):
         Returns:
             True if the deletion was successful, False otherwise
         """
+        if password is not None:
+            # we want to control if the password is good
+            user = safe_execute(self._engine, _USER_PASSWORD,
+                                user_id=user_id).fetchone()
+            if user is None:
+                return False
+
+            if not validate_password(password, user.password_hash):
+                return False
+
         query = delete(users).where(users.c.id == user_id)
         res = safe_execute(self._engine, query)
         return res.rowcount == 1
