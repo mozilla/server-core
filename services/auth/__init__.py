@@ -52,6 +52,16 @@ class InvalidCodeError(Exception):
     pass
 
 
+class NoEmailError(Exception):
+    """Raised when we need the user's email address and it doesn't exist."""
+    pass
+
+
+class InvalidCodeError(Exception):
+    """Raised when we need the user's reset code is incorrect."""
+    pass
+
+
 class ServicesAuth(PluginRegistry):
     """Abstract Base Class for the authentication APIs."""
     plugin_type = 'auth'
@@ -230,6 +240,12 @@ def get_auth(config):
     try:
         from services.auth.mozilla import MozillaAuth
         ServicesAuth.register(MozillaAuth)
+    except ImportError:
+        pass
+
+    try:
+        from services.auth.mozilla import MozillaSRegAuth
+        ServicesAuth.register(MozillaSRegAuth)
     except ImportError:
         pass
 
