@@ -210,8 +210,14 @@ class SyncServerApp(object):
             raise HTTPServiceUnavailable(retry_after=self.retry_after)
 
         if isinstance(result, basestring):
-            response = request.response
-            response.body = result
+            response = getattr(request, 'response', None)
+            if response is None:
+                response = Response(result)
+            elif isinstance(result, str):
+                response.body = result
+            else:
+                # if it's not str it's unicode
+                response.unicode_body = result
         else:
             # result is already a Response
             response = result
