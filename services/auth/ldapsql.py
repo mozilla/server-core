@@ -35,7 +35,7 @@
 # ***** END LICENSE BLOCK *****
 """ LDAP Authentication
 """
-from hashlib import sha1, md5
+from hashlib import sha1
 import random
 
 import ldap
@@ -45,7 +45,7 @@ from sqlalchemy import Integer, String
 from sqlalchemy import create_engine, SmallInteger
 from sqlalchemy.sql import select, insert, update, and_
 
-from services.util import BackendError, ssha, extract_username
+from services.util import BackendError, ssha
 from services.auth import NodeAttributionError
 from services.auth.ldapconnection import ConnectionManager, StateConnector
 from services.auth.resetcode import ResetCodeManager
@@ -139,15 +139,12 @@ class LDAPAuth(ResetCodeManager):
         """Returns the name of the authentication backend"""
         return 'ldap'
 
-    def _get_user_attributes(self, user_id):
-
     def _get_dn(self, user_name=None, user_id=None):
         dn = self.users_root
 
         #if we already have the uid, just build it
         if user_id:
             return "uidNumber=%i,%s" % (user_id, dn)
-
         scope = ldap.SCOPE_SUBTREE
         filter = '(uid=%s)' % user_name
 
@@ -325,9 +322,11 @@ class LDAPAuth(ResetCodeManager):
         if password is None:
             return False   # we need a password
 
-        user = [(ldap.MOD_REPLACE, 'mail', [email]),
-                (ldap.MOD_REPLACE, 'uid', [extract_username(email)])
-               ]
+        user = [(ldap.MOD_REPLACE, 'mail', [email])]
+        #not going to change this behavior yet
+        #user = [(ldap.MOD_REPLACE, 'mail', [email]),
+        #        (ldap.MOD_REPLACE, 'uid', [extract_username(email)])
+        #       ]
         user_name = self._get_username(user_id)
         dn = self._get_dn(user_name)
 

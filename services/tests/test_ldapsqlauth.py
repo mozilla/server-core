@@ -302,7 +302,7 @@ class TestLDAPSQLAuth(unittest.TestCase):
                 'objectClass': ['dataStore', 'inetOrgPerson']}
 
         user = user.items()
-        dn = auth._get_dn(user_name)
+        dn = "uidNumber=%i,ou=users,dc=mozilla" % (user_id)
 
         with auth._conn(auth.admin_user, auth.admin_password) as conn:
             try:
@@ -356,7 +356,7 @@ class TestLDAPSQLAuth(unittest.TestCase):
             self.assertTrue(auth.update_password(uid, 'password2',
                                                  old_password='password'))
             self.assertEqual(calls[-1],
-                             ('uid=tarek4,ou=users,dc=mozilla', 'password'))
+                             ('uidNumber=%s,ou=users,dc=mozilla' %uid, 'password'))
         finally:
             auth._conn = auth._conn2
 
