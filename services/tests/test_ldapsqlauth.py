@@ -52,7 +52,20 @@ from services.util import validate_password, ssha
 
 if LDAP:
     # memory ldap connector for the tests
-    users = {'uid=adminuser,ou=users,dc=mozilla':
+    users = {
+            'uidNumber=1,ou=users,dc=mozilla':
+
+            {'uidNumber': ['1'],
+                'userPassword': [ssha('bind')],
+                'uid': ['testuser'],
+                'account-enabled': ['Yes'],
+                'mail': ['tarek@mozilla.com'],
+                'cn': ['tarek'],
+                'primaryNode': ['weave:'],
+                'rescueNode': ['weave:'],
+                },
+
+            'uid=adminuser,ou=users,dc=mozilla':
 
             {'uidNumber': ['-1'],
                 'userPassword': [ssha('admin')],
@@ -73,9 +86,8 @@ if LDAP:
                 'mail': ['tarek@mozilla.com'],
                 'cn': ['tarek'],
                 'primaryNode': ['weave:'],
-                'rescueNode': ['weave:'],
+                'rescueNode': ['weave:']
                 },
-
             }
 
     class MemoryStateConnector(StateConnector):
@@ -156,7 +168,7 @@ if LDAP:
             return ldap.RES_DELETE, ''
 
 
-_NEXT = 0
+_NEXT = 1
 
 
 class TestLDAPSQLAuth(unittest.TestCase):
@@ -165,7 +177,7 @@ class TestLDAPSQLAuth(unittest.TestCase):
         if not LDAP:
             return
         for key, user in list(users.items()):
-            if user['uidNumber'] in (['-1'], ['0']):
+            if user['uidNumber'] in (['-1'], ['0'], ['1']):
                 continue
             del users[key]
 
@@ -259,11 +271,10 @@ class TestLDAPSQLAuth(unittest.TestCase):
         if not LDAP:
             return
 
-        auth = self._get_auth(users_root='md5', users_base_dn='dc=mozilla')
-        wanted = 'uid=tarek,dc=17507,dc=7507,dc=507,dc=07,dc=7,dc=mozilla'
-        self.assertEquals(auth._get_dn('tarek'), wanted)
+        auth = self._get_auth(users_base_dn='ou=users,dc=mozilla')
+        wanted = 'uidNumber=1,ou=users,dc=mozilla'
+        self.assertEquals(auth._get_dn('testuser'), wanted)
 
-        # now make sure the code hapilly uses this setting
         auth.create_user('tarek', 'tarek', 'tarek@ziade.org')
         uid = auth.get_user_id('tarek')
         auth_uid = auth.authenticate_user('tarek', 'tarek')
