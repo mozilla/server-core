@@ -244,7 +244,6 @@ class TestUtil(unittest.TestCase):
         # page that fails
         code, headers, body = get_url('http://error', get_body=False)
         self.assertEquals(code, 500)
-        self.assertTrue('Error' in body)
 
     def test_proxy(self):
         class FakeRequest(object):
