@@ -216,7 +216,11 @@ class SyncServerApp(object):
             elif isinstance(result, str):
                 response.body = result
             else:
-                # if it's not str it's unicode
+                # if it's not str it's unicode, which really shouldn't happen
+                module = getattr(function, '__module__', 'unknown')
+                name = getattr(function, '__name__', 'unknown')
+                logger.warn('Unicode response returned from: %s - %s'
+                            % (module, name))
                 response.unicode_body = result
         else:
             # result is already a Response
