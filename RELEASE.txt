@@ -1,3 +1,20 @@
+1.0-4 - 2011-04-28
+==================
+
+Impacts:
+
+- Ops
+- QA
+
+Dependencies:
+
+- None
+
+Relevant changes:
+
+ - Bug 646945 (and all dependent bugs) - reconfigure LDAP to use new DN
+
+
 1.0-1 - 2011-11-03
 ==================
 

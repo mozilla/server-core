@@ -35,7 +35,7 @@
 # ***** END LICENSE BLOCK *****
 """ LDAP Authentication
 """
-from hashlib import sha1, md5
+from hashlib import sha1
 import random
 
 import ldap
@@ -139,15 +139,31 @@ class LDAPAuth(ResetCodeManager):
         """Returns the name of the authentication backend"""
         return 'ldap'
 
-    def _get_dn(self, uid):
-        if self.users_root != 'md5':
-            return 'uid=%s,%s' % (uid, self.users_root)
+    def _get_dn(self, user_name=None, user_id=None):
+        dn = self.users_root
 
-        # the dn is calculate with a hash of the user name
-        hash = md5(uid).hexdigest()[:5]
-        dcs = ['dc=%s' % hash[pos:] for pos in range(5)]
-        dcs.append(self.users_base_dn)
-        return 'uid=%s,%s' % (uid, ','.join(dcs))
+        #if we already have the uid, just build it
+        if user_id:
+            return "uidNumber=%i,%s" % (user_id, dn)
+        scope = ldap.SCOPE_SUBTREE
+        filter = '(uid=%s)' % user_name
+
+        with self._conn() as conn:
+            try:
+                user = conn.search_st(dn, scope, filterstr=filter,
+                                      attrlist=[],
+                                      timeout=self.ldap_timeout)
+            except (ldap.TIMEOUT, ldap.SERVER_DOWN, ldap.OTHER), e:
+                logger.debug('Could not get the user info from ldap')
+                raise BackendError(str(e))
+            except ldap.NO_SUCH_OBJECT:
+                return None
+
+        if user is None or len(user) == 0:
+            return None
+
+        #dn is actually the first element that comes back. Don't need attr
+        return user[0][0]
 
     def _get_username(self, user_id):
         """Returns the name for a user id"""
@@ -217,7 +233,6 @@ class LDAPAuth(ResetCodeManager):
                 'uid': user_name,
                 'uidNumber': str(user_id),
                 'primaryNode': 'weave:',
-                'rescueNode': 'weave:',
                 'userPassword': password_hash,
                 'account-enabled': 'Yes',
                 'mail': email,
@@ -225,7 +240,7 @@ class LDAPAuth(ResetCodeManager):
                 'objectClass': ['dataStore', 'inetOrgPerson']}
 
         user = user.items()
-        dn = self._get_dn(user_name)
+        dn = "uidNumber=%i,%s" % (user_id, self.users_root)
 
         with self._conn(self.admin_user, self.admin_password) as conn:
             try:
@@ -308,6 +323,10 @@ class LDAPAuth(ResetCodeManager):
             return False   # we need a password
 
         user = [(ldap.MOD_REPLACE, 'mail', [email])]
+        #not going to change this behavior yet
+        #user = [(ldap.MOD_REPLACE, 'mail', [email]),
+        #        (ldap.MOD_REPLACE, 'uid', [extract_username(email)])
+        #       ]
         user_name = self._get_username(user_id)
         dn = self._get_dn(user_name)
 
