@@ -76,7 +76,7 @@ class SyncServerApp(object):
         self.debug_page = self.config.get('global.debug_page')
 
         # loading the authentication tool
-        self.auth = auth_class(self.config)
+        self.auth = None if auth_class is None else auth_class(self.config)
 
         # loading and connecting controllers
         self.controllers = dict([(name, klass(self)) for name, klass in
@@ -84,10 +84,10 @@ class SyncServerApp(object):
 
         for url in urls:
             if len(url) == 4:
-                verbs, match, controller, method = url
+                verbs, match, controller, action = url
                 extras = {}
             elif len(url) == 5:
-                verbs, match, controller, method, extras = url
+                verbs, match, controller, action, extras = url
             else:
                 msg = "Each URL description needs 4 or 5 elements. Got %s" \
                     % str(url)
@@ -97,7 +97,7 @@ class SyncServerApp(object):
                 verbs = [verbs]
 
             self.mapper.connect(None, match, controller=controller,
-                                method=method, conditions=dict(method=verbs),
+                                action=action, conditions=dict(method=verbs),
                                 **extras)
 
         # loads host-specific configuration
@@ -186,9 +186,10 @@ class SyncServerApp(object):
         match, __ = match
 
         # authentication control
-        self.auth.check(request, match)
+        if self.auth is not None:
+            self.auth.check(request, match)
 
-        function = self._get_function(match['controller'], match['method'])
+        function = self._get_function(match['controller'], match['action'])
         if function is None:
             raise HTTPNotFound('Unkown URL %r' % request.path_info)
 
@@ -209,7 +210,14 @@ class SyncServerApp(object):
             raise HTTPServiceUnavailable(retry_after=self.retry_after)
 
         if isinstance(result, basestring):
-            response = Response(result)
+            response = getattr(request, 'response', None)
+            if response is None:
+                response = Response(result)
+            elif isinstance(result, str):
+                response.body = result
+            else:
+                # if it's not str it's unicode
+                response.unicode_body = result
         else:
             # result is already a Response
             response = result
@@ -219,13 +227,13 @@ class SyncServerApp(object):
         response.headers.update(before_headers)
         return response
 
-    def _get_function(self, controller, method):
-        """Return the method of the right controller."""
+    def _get_function(self, controller, action):
+        """Return the action of the right controller."""
         try:
             controller = self.controllers[controller]
         except KeyError:
             return None
-        return getattr(controller, method)
+        return getattr(controller, action, None)
 
 
 def set_app(urls, controllers, klass=SyncServerApp, auth_class=Authentication,
