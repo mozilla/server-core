@@ -145,6 +145,8 @@ class TestMozillaSRegAuth(unittest.TestCase):
         self.assertFalse(auth.update_password(uid, 'newpass', key='foo'))
 
     def test_no_email_no_reset_code(self):
+        if not DO_TESTS:
+            return
         wsgi_intercept.add_wsgi_intercept('localhost', 80, fake_response2)
         auth = MozillaAuth('ldap://localhost',
                            'localhost', 'this_path', 'http',
